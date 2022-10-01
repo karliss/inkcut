@@ -12,7 +12,7 @@ Rewrote on June 8, 2019
 """
 from math import sqrt, cos, sin, radians, isinf, pi, isnan
 from atom.api import Float, Enum, Instance
-from enaml.qt.QtCore import QPointF
+from enaml.qt.QtCore import QPointF, QRectF, QSizeF
 from enaml.qt.QtGui import QPainterPath, QTransform, QVector2D
 
 from inkcut.device.plugin import DeviceFilter, Model
@@ -143,15 +143,27 @@ class BladeOffsetFilter(DeviceFilter):
         if isnan(angle) or isnan(next_angle):
             return
         if abs(angle - next_angle) > self.config.cutoff:
-            r = self.config.offset
-            a = radians(next_angle)
-            dx, dy = r*cos(a), -r*sin(a)
-            po = QPointF(cur.x()+dx, cur.y()+dy)
+            if False:
+                r = self.config.offset
+                a = radians(next_angle)
+                dx, dy = r*cos(a), -r*sin(a)
+                po = QPointF(cur.x()+dx, cur.y()+dy)
 
-            c = offset_path.currentPosition()
-            dx, dy = po.x()-cur.x()+c.x()-cur.x(), po.y()-cur.y()+c.y()-cur.y()
-            c1 = QPointF(cur.x()+dx, cur.y()+dy)
-            offset_path.quadTo(c1, po)
+                c = offset_path.currentPosition()
+                dx, dy = po.x()-cur.x()+c.x()-cur.x(), po.y()-cur.y()+c.y()-cur.y()
+                c1 = QPointF(cur.x()+dx, cur.y()+dy)
+                offset_path.quadTo(c1, po)
+            else:
+                r = self.config.offset
+                circle_size = QPointF(r, r)
+                diff = next_angle - angle
+                #traceback.print_stack()
+                if diff > 180:
+                    diff -= 360
+                if diff < -180:
+                    diff += 360
+                print(f"{angle} {diff} {cur}")
+                offset_path.arcTo(QRectF(cur - circle_size, QSizeF(2 * r, 2 * r)), angle, diff)
             # This works for small offsets < 0.5 mm
             #offset_path.lineTo(po)
 
