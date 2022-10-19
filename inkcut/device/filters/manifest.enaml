@@ -59,23 +59,31 @@ enamldef FiltersManifest(PluginManifest):
     id = 'inkcut.device.filters'
 
     Extension:
-        id = 'filters'
+        id = 'filters-overcut'
         point = DEVICE_FILTER_POINT
-
+        rank = 40
         DeviceFilter:
             id = 'overcut'
             name = QApplication.translate("filters", "Overcut")
             factory = overcut_factory
             config_view = overcut_config_view
 
-        DeviceFilter:
-            id = 'min-line'
-            name = QApplication.translate("filters", "Min line")
-            factory = min_line_factory
-            config_view = min_line_config_view
-
+    Extension:
+        id = 'filters-blade-offset'
+        point = DEVICE_FILTER_POINT
+        rank = 50
         DeviceFilter:
             id = 'blade-offset'
             name = QApplication.translate("filters", "Blade Offset")
             factory = blade_offset_factory
             config_view = blade_offset_config_view
+
+    Extension:
+        id = 'filters-min-line'
+        point = DEVICE_FILTER_POINT
+        rank = 30
+        DeviceFilter:
+            id = 'min-line'
+            name = QApplication.translate("filters", "Min line")
+            factory = min_line_factory
+            config_view = min_line_config_view
