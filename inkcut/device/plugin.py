@@ -447,7 +447,7 @@ class DeviceConfig(Model):
     def transform(self):
         if self._transform is None:
             self._transform = self.make_transform(self.area)
-        return self.transform
+        return self._transform
     @property
     def inverse_transform(self):
         if not self._inverse_transform:
