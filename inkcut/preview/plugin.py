@@ -84,12 +84,12 @@ class PreviewModel(Model):
             return
         x, y, z = position
         if z:
-            self.paths[0].lineTo(x, -y)
-            self.paths[1].moveTo(x, -y)
+            self.paths[0].lineTo(x, y)
+            self.paths[1].moveTo(x, y)
             self.queue_redraw(0)
         else:
-            self.paths[0].moveTo(x, -y)
-            self.paths[1].lineTo(x, -y)
+            self.paths[0].moveTo(x, y)
+            self.paths[1].lineTo(x, y)
             self.queue_redraw(1)
 
 

@@ -33,6 +33,9 @@ from io import BytesIO
 from . import extensions
 import copy
 
+from ..core import utils
+
+
 class DeviceError(AssertionError):
     """ Error for whatever """
 
@@ -411,26 +414,12 @@ class DeviceConfig(Model):
             x1, x2, x3 = (self.extra_scale, 0, 0)
             y1, y2, y3 = (0, self.extra_scale, 0)
 
-            corner_alignment = self.expansion_direction
-
             if self.axis_mapping & DeviceConfig.AXIS_FLAG_H_LEFT:
                 x1 = -x1
-                #x3 = area.width()
-
             if self.axis_mapping & DeviceConfig.AXIS_FLAG_V_DOWN:
-                y1 = y1
+                y2 = y2
             else:
-                y1 = -y1
-            #if corner_alignment.y() > 0:
-            #    if reverse_v:
-            #        y1 = -y1
-            #    else:
-            #        y1 = y1
-            #else:
-            #    if reverse_v:
-            #        y1 = -y1
-            #    else:
-            #        y1 = y1
+                y2 = -y2
 
             if self.axis_mapping & DeviceConfig.AXIS_FLAG_SWAPXY:
                 x1, x2, x3, y1, y2, y3 = (y1, y2, y3, x1, x2, x3)
@@ -455,6 +444,7 @@ class DeviceConfig(Model):
             if invert_success:
                 self._inverse_transform = inverted
             else:
+                log.warn("failed to inverse trans")
                 self._inverse_transform = QTransform()
         return self._inverse_transform
 
@@ -739,10 +729,11 @@ class Device(Model):
         # device outputs
         model = job.create(direction)
 
-        tr = self.config.paper_to_work_transform(job.material)
+        tr = self.config.get_paper_to_work_transform(job.material)
         #: Move the job to the new origin
         x, y, z = self.origin
-        tr.translate(x, y)
+        origin = self.config.inverse_transform.map(QPointF(x, y))
+        tr.translate(origin.x(), origin.y())
         model = tr.map(model)
 
         #: Return the transformed model
@@ -1037,6 +1028,7 @@ class Device(Model):
             #: Set the origin
             if job.info.status == 'complete' and job.after_job == Job.FEED_TO_END:
                 self.origin = self.position
+                log.debug(f'update origin {self.origin}')
 
             #: If the user didn't cancel, set the origin and
             #: Process any jobs that entered the queue while this was running
@@ -1072,12 +1064,8 @@ class Device(Model):
         config = self.config
 
         # Previous point
-        _p = QtCore.QPointF(self.origin[0], self.origin[1])
 
-        # Do a final translation since Qt's y axis is reversed from svg's
-        # It should now be a bbox of (x=0, y=0, width, height)
-        # this creates a copy
-        model = QtGui.QTransform.fromScale(1, -1).map(model)
+        _p = self.config.inverse_transform.map(QtCore.QPointF(self.origin[0], self.origin[1]))
 
         # Determine if interpolation should be used
         skip_interpolation = (self.connection.always_spools or config.spooled
@@ -1427,39 +1415,34 @@ class DevicePlugin(Plugin):
         job = device.job
 
         if job:
-            job.set_direction(device.expansion_direction)
+            job.set_direction(device.config.expansion_direction,
+                              device.config.page_placement_direction)
 
         #: Transform used by the view
         preview_plugin = self.workbench.get_plugin('inkcut.preview')
         plot = preview_plugin.live_preview
         t = preview_plugin.transform
-        preview_plugin.set_live_preview(*view_items)
-
-
-        return # TODO: restore code
 
         #: Draw the device
-
-
-        r = QtGui.QTransform()
-
-        if device and device.area:
-            path = QPainterPath()
-            area = device.area_rect
-            path.addRect(area)
+        if device:
             view_items.append(
-                dict(path=r.map(t.map(path)),
+                dict(path=utils.rect_to_path(device.area_rect),
                      pen=plot.pen_device,
                      skip_autorange=True)
             )
 
         if job and job.material:
             # Also observe any change to job.media and job.device
+            page_rect = job.material.get_rect(job.quadrant_direction)
+            padded_page = job.material.get_content_rect(job.quadrant_direction)
+            t = device.config.get_paper_to_work_transform(job.material)
+            origin = device.config.inverse_transform.map(QPointF(device.origin[0], device.origin[1]))
+            t.translate(origin.x(), origin.y())
             view_items.extend([
-                dict(path=r.map(t.map(job.material.path)),
+                dict(path=utils.rect_to_path(t.mapRect(page_rect)),
                      pen=plot.pen_media,
                      skip_autorange=True),
-                dict(path=r.map(t.map(job.material.padding_path)),
+                dict(path=utils.rect_to_path(t.mapRect(padded_page)),
                      pen=plot.pen_media_padding, skip_autorange=True)
             ])
 
@@ -1471,5 +1454,7 @@ class DevicePlugin(Plugin):
         """ Watch the position of the device as it changes. """
         if change['type'] == 'update' and self.device.job:
             x, y, z = change['value']
+            origin = self.device.config.inverse_transform.map(QPointF(x, y))
+            x, y = origin.x(), origin.y()
             preview_plugin = self.workbench.get_plugin('inkcut.preview')
-            preview_plugin.live_preview.update(change['value'])
+            preview_plugin.live_preview.update((x, y, z))

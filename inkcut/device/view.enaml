@@ -199,7 +199,7 @@ enamldef DeviceConfigView(Container):
                         items = list(model.get_member('area_alignment_corner').items)
                         selected := model.area_alignment_corner
                         attr labels = {
-                            DeviceConfig.ALIGNMENT_CORNER_ZERO: QT_TRANSLATE_NOOP("device", "Positive"),
+                            DeviceConfig.ALIGNMENT_CORNER_ZERO: QT_TRANSLATE_NOOP("device", "Positive (default)"),
                             DeviceConfig.ALIGNMENT_CORNER_TOP_LEFT: QT_TRANSLATE_NOOP("device", "Bottom right"),
                             DeviceConfig.ALIGNMENT_CORNER_TOP_RIGHT: QT_TRANSLATE_NOOP("device", "Bottom left"),
                             DeviceConfig.ALIGNMENT_CORNER_BOTTOM_LEFT: QT_TRANSLATE_NOOP("device", "Top right"),
@@ -221,7 +221,7 @@ enamldef DeviceConfigView(Container):
                         items = list(model.get_member('paper_corner').items)
                         selected := model.paper_corner
                         attr labels = {
-                            DeviceConfig.ALIGNMENT_CORNER_ZERO: QT_TRANSLATE_NOOP("device", "Origin corner"),
+                            DeviceConfig.ALIGNMENT_CORNER_ZERO: QT_TRANSLATE_NOOP("device", "Origin corner (default)"),
                             DeviceConfig.ALIGNMENT_CORNER_TOP_LEFT: QT_TRANSLATE_NOOP("device", "Top left"),
                             DeviceConfig.ALIGNMENT_CORNER_TOP_RIGHT: QT_TRANSLATE_NOOP("device", "Top right"),
                             DeviceConfig.ALIGNMENT_CORNER_BOTTOM_LEFT: QT_TRANSLATE_NOOP("device", "Bottom left"),
