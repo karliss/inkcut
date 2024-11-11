@@ -14,6 +14,7 @@ from enaml.core.api import Conditional
 from enaml.widgets.api import Container, Form, Label, ObjectCombo, SpinBox, MultilineField, CheckBox
 from enamlx.widgets.api import DoubleSpinBox
 from enaml.qt.QtWidgets import QApplication
+from enaml.qt.QtCore import QT_TRANSLATE_NOOP
 from .gcode import GCodeConfig
 
 enamldef DMPLConfigView(Container):
@@ -34,6 +35,16 @@ enamldef GCodeConfigView(Container):
             text = QApplication.translate("protocols", "Use builtin startup/end commands")
             checked := model.use_builtin
             tool_tip = QApplication.translate("protocols", "When disabled make sure to specify after connect, before and after job commands in device settings")
+        Label:
+            text = QApplication.translate("protocols", "Units")
+        ObjectCombo:
+            attr labels = {
+                GCodeConfig.UNIT_METRIC: QT_TRANSLATE_NOOP("protocols", "Metric: mm (G21)"),
+                GCodeConfig.UNIT_INCH: QT_TRANSLATE_NOOP("protocols", "Inch (G20)"),
+            }
+            to_string = lambda v: QApplication.translate('protocols', labels[v])
+            items = [GCodeConfig.UNIT_METRIC, GCodeConfig.UNIT_INCH]
+            selected := model.unit_mode
         Label:
             text = QApplication.translate("protocols", "Decimal precision")
         SpinBox:

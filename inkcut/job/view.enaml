@@ -498,6 +498,8 @@ enamldef MaterialDockItem(DockItem):
                 text = QApplication.translate("job", 'Use content bounds')
                 icon = load_icon('page_white_picture')
                 checked := job.auto_shift
+                tool_tip =  QApplication.translate("job", """Whether to use the dimensions of filtered input document
+                 content or whole page for positioning. Disable for easier alignment of multiple passes.""")
             CheckBox:
                 text = QApplication.translate("job", 'Align center horizontally')
                 icon = load_icon('shape_align_center')

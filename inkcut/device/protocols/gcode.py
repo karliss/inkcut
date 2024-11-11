@@ -7,8 +7,9 @@ Created on Dec 30, 2016
 import atom.api
 import twisted.internet.task
 
-from inkcut.core.utils import async_sleep
+from inkcut.core.utils import async_sleep, log
 from inkcut.device.plugin import DeviceProtocol, Model
+from inkcut.core.api import from_unit, to_unit
 from twisted.internet import defer
 from enaml.qt.QtCore import QT_TRANSLATE_NOOP
 from atom.api import Bool, Float, Enum, Int, Instance, Str, Bytes
@@ -47,20 +48,24 @@ class GCodeConfig(Model):
 
     stream_mode = Enum(*GCODE_STREAM_MODES.keys()).tag(config=True)
 
+    UNIT_METRIC = 21
+    UNIT_INCH = 20
+
+    unit_mode = Enum(UNIT_METRIC, UNIT_INCH).tag(config=True)
+
 
 class GCodeProtocol(DeviceProtocol):
 
     config = Instance(GCodeConfig, ()).tag(config=True)
 
     _currently_up = Bool()
-    scale = 1  # Float(25.4/90)
+    scale = Float(25.4/90)
     _ok_waiting = Int(default=0)
     _receive_buffer = Bytes()
     _reactor = atom.api.Value()
 
     def _default__reactor(self):
         from twisted.internet import reactor as reactor
-
         return reactor
 
     def non_interactive_streaming(self):
@@ -78,7 +83,7 @@ class GCodeProtocol(DeviceProtocol):
             elif stream_mode == GCodeConfig.GCODE_STREAM_OK:
                 yield defer.maybeDeferred(self._send_stream_simple_ok, commands)
             else:
-                logging.debug("Unexpected streaming mode")
+                log.warn("Unexpected streaming mode")
 
     @defer.inlineCallbacks
     def send_command_block(self, commands):
@@ -149,11 +154,16 @@ class GCodeProtocol(DeviceProtocol):
     @defer.inlineCallbacks
     def connection_made(self):
         self._ok_waiting = 0
+        if self.config.unit_mode == GCodeConfig.UNIT_INCH:
+            self.scale = to_unit(1, 'in')
+        else:
+            self.scale = to_unit(1, 'mm')
         if self.config.use_builtin:
             yield self.write(
                 "G28; Return to home\n"
                 + "G98; Return to initial z\n"
                 + "G90; Use absolute coordinates\n"
+                + ("G21\n" if self.config.unit_mode == GCodeConfig.UNIT_METRIC else "G20\n")
             )
 
     @defer.inlineCallbacks

@@ -1027,7 +1027,6 @@ class Device(Model):
             #: Set the origin
             if job.info.status == 'complete' and job.after_job == Job.FEED_TO_END:
                 self.origin = self.position
-                log.debug(f'update origin {self.origin}')
 
             #: If the user didn't cancel, set the origin and
             #: Process any jobs that entered the queue while this was running

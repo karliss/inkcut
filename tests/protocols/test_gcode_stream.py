@@ -15,7 +15,7 @@ import pytest
 
 from twisted.internet import task, defer
 
-
+from inkcut.core import utils
 from inkcut.device.plugin import DeviceConfig, Device, TestTransport
 from inkcut.device.extensions import DeviceDriver
 from inkcut.device.protocols.gcode import GCodeConfig, GCodeProtocol
@@ -46,6 +46,8 @@ def test_ok_streaming(gcodedevice_fixture):
 
     transport: TestTransport = gcodedevice_fixture.connection
 
+    mm = utils.from_unit(1, "mm")
+
     connect_r = defer.maybeDeferred(gcodedevice_fixture.connect)
     # connect_r.addCallback(finish, 1)
     # clock.callLater(0, connect_r)
@@ -53,7 +55,7 @@ def test_ok_streaming(gcodedevice_fixture):
     assert connect_r.called
 
     # wait for ok to finish
-    move1_def = defer.maybeDeferred(gcodedevice_fixture.move, (1, 1, 0))
+    move1_def = defer.maybeDeferred(gcodedevice_fixture.move, (1 * mm, 1 * mm, 0))
     assert move1_def.called is False
     clock.pump([0.01] * 10)
     assert move1_def.called is False
@@ -64,7 +66,7 @@ def test_ok_streaming(gcodedevice_fixture):
     transport.clear_buffer()
 
     # multipart receive
-    move1_def = defer.maybeDeferred(gcodedevice_fixture.move, (1, 2, 0))
+    move1_def = defer.maybeDeferred(gcodedevice_fixture.move, (1 * mm, 2 * mm, 0))
     assert move1_def.called is False
     clock.pump([0.01] * 10)
     assert move1_def.called is False
