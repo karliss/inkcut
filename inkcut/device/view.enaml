@@ -379,7 +379,7 @@ enamldef DeviceProgressDockItem(DockItem):
                     triggered :: plot.proxy.widget.autoRange()
                 Action:
                     text = QApplication.translate("device", "Clear plot")
-                    triggered :: plugin.reset_preview()
+                    triggered :: preview_plugin.reset_live_preview(device, job, True)
         Container:
             constraints = [
                 vbox(

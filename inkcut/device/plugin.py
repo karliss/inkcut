@@ -537,10 +537,12 @@ class Device(Model):
 
     #: Position. Defaults to x,y,z. The protocol can
     #: handle this however necessary.
+    # device coordinate space, inkcut working units
     position = ContainerList(default=[0, 0, 0])
 
     #: Origin position. Defaults to [0, 0, 0]. The system will translate
     #: jobs to the origin so multiple can be run.
+    # device coordinate space, inkcut working units
     origin = ContainerList(default=[0, 0, 0])
 
     #: Device is currently busy processing a job
@@ -782,18 +784,15 @@ class Device(Model):
         p = QPointF(position[0], position[1])
 
         if absolute:
-            #: Clip everything to never go below zero in absolute mode
             p = self.map_point(p)
             position = [p.x(), p.y(), position[2]]
             self.position = position
         else:
-            #: Convert to relative to absolute for the UI
-            p += QPointF(position[0], position[1])
-            p = self.map_point(p)
-            position = [p.x(), p.y(), position[2]]
+            p = self.map_vector(p)
+            position = [self.position[0] + p.x(), self.position[1] + p.y(), position[2]]
             self.position = position
 
-        #TODO: use relative mode provided by protocol and self.map_vector
+        # TODO: use relative mode provided by protocol and self.map_vector
         result = self.connection.protocol.move(*position, absolute=absolute)
         if result:
             return result
@@ -1400,54 +1399,20 @@ class DevicePlugin(Plugin):
     # -------------------------------------------------------------------------
     # Live progress API
     # -------------------------------------------------------------------------
-    def reset_preview(self):
-        """ Clear the preview """
-        self._reset_preview(None)
 
-    @observe('device', 'device.job', 'device.alignment_corner', 'device.area')
+    @observe('device', 'device.job', 'device.alignment_corner', 'device.paper_corner', 'device.area')
     def _reset_preview(self, change):
-        """ Redraw the preview on the screen
-
-        """
-        view_items = []
-
-        device = self.device
-        job = device.job
-
-        if job:
-            job.set_direction(device.config.expansion_direction,
-                              device.config.page_placement_direction)
-
-        #: Transform used by the view
+        # TODO: device plugin shouldn't need to know anything about preview plugin, preview plugin should subscribe to
+        # relevant events itself
         preview_plugin = self.workbench.get_plugin('inkcut.preview')
-        plot = preview_plugin.live_preview
-        t = preview_plugin.transform
+        preview_plugin.reset_live_preview(self.device, self.device.job, clear_paths=True)
 
-        #: Draw the device
-        if device:
-            view_items.append(
-                dict(path=utils.rect_to_path(device.area_rect),
-                     pen=plot.pen_device,
-                     skip_autorange=True)
-            )
-
-        if job and job.material:
-            # Also observe any change to job.media and job.device
-            page_rect = job.material.get_rect(job.quadrant_direction)
-            padded_page = job.material.get_content_rect(job.quadrant_direction)
-            t = device.config.get_paper_to_work_transform(job.material)
-            origin = device.config.inverse_transform.map(QPointF(device.origin[0], device.origin[1]))
-            t.translate(origin.x(), origin.y())
-            view_items.extend([
-                dict(path=utils.rect_to_path(t.mapRect(page_rect)),
-                     pen=plot.pen_media,
-                     skip_autorange=True),
-                dict(path=utils.rect_to_path(t.mapRect(padded_page)),
-                     pen=plot.pen_media_padding, skip_autorange=True)
-            ])
-
-        #: Update the plot
-        preview_plugin.set_live_preview(*view_items)
+    @observe('device.origin')
+    def _reset_preview2(self, change):
+        # TODO: device plugin shouldn't need to know anything about preview plugin, preview plugin should subscribe to
+        # relevant events itself
+        preview_plugin = self.workbench.get_plugin('inkcut.preview')
+        preview_plugin.reset_live_preview(self.device, self.device.job, clear_paths=False)
 
     @observe('device.position')
     def _update_preview(self, change):

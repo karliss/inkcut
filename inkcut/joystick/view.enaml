@@ -19,8 +19,8 @@ from enaml.widgets.api import (CheckBox, Container, Dialog, Field, Label,
     ImageView, PushButton, RadioButton, Window,ProgressBar, Form, ObjectCombo)
 
 from enaml.widgets.spin_box import SpinBox
-from enamlx.widgets.api import KeyEvent
-from inkcut.core.api import DockItem, to_unit
+from enamlx.widgets.api import DoubleSpinBox, KeyEvent
+from inkcut.core.api import DockItem, to_unit, from_unit
 from inkcut.core.utils import load_icon
 
 
@@ -30,6 +30,7 @@ enamldef JoystickDockItem(DockItem): joystickDock:
     attr plugin
     attr device << plugin.device
     attr device_plugin << plugin.workbench.get_plugin('inkcut.device')
+    attr job_plugin << plugin.workbench.get_plugin('inkcut.job')
     icon = load_icon('controller')
 
     attr pending_refresh = False 
@@ -94,10 +95,12 @@ enamldef JoystickDockItem(DockItem): joystickDock:
 
                 Label:
                     text = QApplication.translate('control', 'Step')
-                SpinBox:
+                DoubleSpinBox:
                     maximum = 1000000000
-                    single_step = 10
-                    value := plugin.rate
+                    decimals = 3
+                    suffix << " " + job_plugin.units
+                    value << to_unit(plugin.rate, job_plugin.units)
+                    value :: plugin.rate = from_unit(change['value'], job_plugin.units)
                 Label:
                     text = QApplication.translate('control', "Status")
                 Label: status_label:
