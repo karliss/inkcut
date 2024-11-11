@@ -25,6 +25,7 @@ from inkcut.device.protocols.gcode import GCodeConfig, GCodeProtocol
 def gcodedevice_fixture():
     config = DeviceConfig()
     config.test_mode = True
+    config.axis_mapping = DeviceConfig.AXIS_MAP_XR_YD
     decl = DeviceDriver()
     dev = Device(config=config, declaration=decl)
     gcode_config = GCodeConfig()
