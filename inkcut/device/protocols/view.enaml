@@ -16,6 +16,8 @@ from enamlx.widgets.api import DoubleSpinBox
 from enaml.qt.QtWidgets import QApplication
 from enaml.qt.QtCore import QT_TRANSLATE_NOOP
 from .gcode import GCodeConfig
+from .gpgl import GPGLConfig
+from .dmpl import DMPLConfig
 
 enamldef DMPLConfigView(Container):
     attr model
@@ -53,7 +55,7 @@ enamldef GCodeConfigView(Container):
             maximum = 10
         Label:
             text = QApplication.translate("protocols", "Streaming mode")
-            tool_tip = QApplication.translate("protocols", "None - no audtional stream flow control, ok - wait for ok response after each command (recommended for Marlin and Grbl).")
+            tool_tip = QApplication.translate("protocols", "None - no additional stream flow control, ok - wait for ok response after each command (recommended for Marlin and Grbl).")
         ObjectCombo:
             items = list(GCodeConfig.GCODE_STREAM_MODES.items())
             to_string = lambda obj: QApplication.translate("gcode", obj[1])
@@ -113,13 +115,48 @@ enamldef DMPLConfigView(Container):
     ObjectCombo:
         items  = list(model.get_member('mode').items)
         selected := model.mode
+    Label:
+        text = QApplication.translate("protocols", "Protocol scale")
+    ObjectCombo:
+        attr labels = {
+            DMPLConfig.SCALE_IGNORE: QT_TRANSLATE_NOOP("protocols", "Ignore"),
+            DMPLConfig.SCALE_001_IN: QT_TRANSLATE_NOOP("protocols", "0.001 in/step EC1"),
+            DMPLConfig.SCALE_005_IN: QT_TRANSLATE_NOOP("protocols", "0.005 in/step EC5"),
+            DMPLConfig.SCALE_1_MM: QT_TRANSLATE_NOOP("protocols", "0.1 mm/step ECM"),
+            DMPLConfig.SCALE_025_MM: QT_TRANSLATE_NOOP("protocols", "0.025 mm/step ECN"),
+        }
+        to_string = lambda v: QApplication.translate('protocols', labels[v])
+        items = list(labels.keys())
+        selected := model.unit_mode
 
 
 enamldef HPGLConfigView(Container):
     attr model
     Label:
-        text = QApplication.translate("protocols",
-                                      "Pad commands with line feed")
+        pass
     CheckBox:
         checked := model.pad
-        text = QApplication.translate("protocols", "Enable")
+        text = QApplication.translate("protocols",
+                                      "Pad commands with line feed")
+    Label:
+        pass
+    CheckBox:
+        checked := model.ignore_protocol_scale
+        text = QApplication.translate("protocols",
+                                      "Ignore protocol scale")
+        tool_tip = QApplication.translate("protocols",
+          "Do not apply the default protocol scale (0.025mm=1/1016in). Enable this if you are going to apply custom scale in Device/Output settings.")
+
+enamldef GPGLConfigView(Container):
+    attr model
+    Label:
+        text = QApplication.translate("protocols", "Protocol scale")
+    ObjectCombo:
+        attr labels = {
+            GPGLConfig.SCALE_IGNORE: QT_TRANSLATE_NOOP("protocols", "Ignore"),
+            GPGLConfig.SCALE_1MM: QT_TRANSLATE_NOOP("protocols", "0.1mm/step"),
+            GPGLConfig.SCALE_025MM: QT_TRANSLATE_NOOP("protocols", "0.025mm/step"),
+        }
+        to_string = lambda v: QApplication.translate('protocols', labels[v])
+        items = list(labels.keys())
+        selected := model.unit_mode

@@ -151,13 +151,17 @@ class GCodeProtocol(DeviceProtocol):
         if self.config.lift_mode == GCodeConfig.TOOL_LIFT_CUSTOM:
             yield self.send_command_block(self.config.lower_gcode)
 
+    @property
+    def protocol_scale(self) -> Float:
+        if self.config.unit_mode == GCodeConfig.UNIT_METRIC:
+            return to_unit(1, 'mm')
+        else:
+            return to_unit(1, 'in')
+
     @defer.inlineCallbacks
     def connection_made(self):
         self._ok_waiting = 0
-        if self.config.unit_mode == GCodeConfig.UNIT_INCH:
-            self.scale = to_unit(1, 'in')
-        else:
-            self.scale = to_unit(1, 'mm')
+        self.scale = self.protocol_scale
         if self.config.use_builtin:
             yield self.write(
                 "G28; Return to home\n"

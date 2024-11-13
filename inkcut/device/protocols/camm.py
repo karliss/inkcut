@@ -8,6 +8,7 @@ from inkcut.device.plugin import DeviceProtocol
 
 
 class CAMMGL1Protocol(DeviceProtocol):
+    # Needs to be Rechecked and potentially renamed. Contains potentially incorrect mix of mode 1 and mode 2 commands.
     def connection_made(self):
         self.write("IN;")
     
@@ -25,3 +26,7 @@ class CAMMGL1Protocol(DeviceProtocol):
 
     def connection_lost(self):
         pass
+
+    @property
+    def protocol_scale(self):
+        return 1

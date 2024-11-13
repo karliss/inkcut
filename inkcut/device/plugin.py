@@ -218,6 +218,15 @@ class DeviceProtocol(Model):
         """
         pass
 
+    @property
+    def protocol_scale(self) -> Float:
+        """The scale for converting from inkcut units to protocol units.
+        The final scale is applied at protocol level, since some of the
+        protocols either define specific units or allow negotiating which
+        units to use.
+        """
+        return 1
+
 
 class DeviceFilter(Model):
     """ A device filter is applied to apply either the QPainterPath or to the
