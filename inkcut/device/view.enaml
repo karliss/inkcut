@@ -17,11 +17,12 @@ from enaml.core.api import Conditional
 from enaml.qt.QtWidgets import QApplication
 from enaml.qt.QtCore import QT_TRANSLATE_NOOP
 from enaml.widgets.api import (
-    Form, CheckBox, Container, Label, ProgressBar, PushButton, Notebook, Page, ObjectCombo,
-    Action, Menu, MultilineField
+    Form, CheckBox, Container, Label, ProgressBar, PushButton, RadioButton,
+    Notebook, Page, ObjectCombo, Action, Menu, MultilineField
 )
 from enamlx.widgets.api import DoubleSpinBox
 from inkcut.core.api import Model, DockItem
+from inkcut.core.models import AreaBase
 from inkcut.core.utils import to_unit, from_unit, load_icon
 from inkcut.preview.plot_view import PlotView
 from .plugin import DeviceConfig
@@ -86,6 +87,68 @@ def to_scale_mul(v, unit):
     elif unit == "in/step":
         return to_unit(1, "in") / v
     return v
+
+enamldef AlignmentChoice9(Container): alignment_widget:
+    padding = 0
+    attr value = AreaBase.combine_alignment(AreaBase.JOB_AXIS_ALIGN_ZERO, AreaBase.JOB_AXIS_ALIGN_ZERO)
+    Container:
+        constraints = [
+            hbox(h_o, h_n, h_m, h_p)
+        ]
+        padding = 0
+        RadioButton: h_o:
+            text = QApplication.translate("widget", "Origin")
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.JOB_AXIS_ALIGN_ZERO,
+                AreaBase.split_alignment(alignment_widget.value)[1])
+            checked << AreaBase.split_alignment(alignment_widget.value)[0] == AreaBase.JOB_AXIS_ALIGN_ZERO
+        RadioButton: h_n:
+            icon = load_icon('shape_align_left')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.JOB_AXIS_ALIGN_MIN,
+                AreaBase.split_alignment(alignment_widget.value)[1])
+            checked << AreaBase.split_alignment(alignment_widget.value)[0] == AreaBase.JOB_AXIS_ALIGN_MIN
+        RadioButton: h_m:
+            icon = load_icon('shape_align_center')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.JOB_AXIS_ALIGN_MID,
+                AreaBase.split_alignment(alignment_widget.value)[1])
+            checked << AreaBase.split_alignment(alignment_widget.value)[0] == AreaBase.JOB_AXIS_ALIGN_MID
+        RadioButton: h_p:
+            icon = load_icon('shape_align_right')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.JOB_AXIS_ALIGN_MAX,
+                AreaBase.split_alignment(alignment_widget.value)[1])
+            checked << AreaBase.split_alignment(alignment_widget.value)[0] == AreaBase.JOB_AXIS_ALIGN_MAX
+    Container:
+        constraints = [
+            hbox(v_o, v_n, v_m, v_p)
+        ]
+        padding = 0
+        RadioButton: v_o:
+            text = QApplication.translate("widget", "Origin")
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.split_alignment(alignment_widget.value)[0],
+                AreaBase.JOB_AXIS_ALIGN_ZERO)
+            checked << AreaBase.split_alignment(alignment_widget.value)[1] == AreaBase.JOB_AXIS_ALIGN_ZERO
+        RadioButton: v_n:
+            icon = load_icon('shape_align_top')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.split_alignment(alignment_widget.value)[0],
+                AreaBase.JOB_AXIS_ALIGN_MIN)
+            checked << AreaBase.split_alignment(alignment_widget.value)[1] == AreaBase.JOB_AXIS_ALIGN_MIN
+        RadioButton: v_m:
+            icon = load_icon('shape_align_middle')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.split_alignment(alignment_widget.value)[0],
+                AreaBase.JOB_AXIS_ALIGN_MID)
+            checked << AreaBase.split_alignment(alignment_widget.value)[1] == AreaBase.JOB_AXIS_ALIGN_MID
+        RadioButton: v_p:
+            icon = load_icon('shape_align_bottom')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.split_alignment(alignment_widget.value)[0],
+                AreaBase.JOB_AXIS_ALIGN_MAX)
+            checked << AreaBase.split_alignment(alignment_widget.value)[1] == AreaBase.JOB_AXIS_ALIGN_MAX
 
 enamldef DeviceConfigView(Container):
     attr model: DeviceConfig
@@ -232,6 +295,9 @@ enamldef DeviceConfigView(Container):
                     pass
                 CheckBox: advanced_output_opt:
                     text = QApplication.translate("device", "Advanced options")
+                    attr excl_icon = load_icon("exclamation")
+                    icon << excl_icon if (model.paper_corner != 0 or model.area_alignment_corner != DeviceConfig.ALIGNMENT_CORNER_ZERO\
+                        or model.work_area_offset.length() > 0.1 or model.paper_offset.length() > 0.1) else None
                 Conditional:
                     condition << advanced_output_opt.checked
                     Label:
@@ -241,10 +307,10 @@ enamldef DeviceConfigView(Container):
                         selected := model.area_alignment_corner
                         attr labels = {
                             DeviceConfig.ALIGNMENT_CORNER_ZERO: QT_TRANSLATE_NOOP("device", "Positive (default)"),
-                            DeviceConfig.ALIGNMENT_CORNER_TOP_LEFT: QT_TRANSLATE_NOOP("device", "Bottom right"),
-                            DeviceConfig.ALIGNMENT_CORNER_TOP_RIGHT: QT_TRANSLATE_NOOP("device", "Bottom left"),
                             DeviceConfig.ALIGNMENT_CORNER_BOTTOM_LEFT: QT_TRANSLATE_NOOP("device", "Top right"),
                             DeviceConfig.ALIGNMENT_CORNER_BOTTOM_RIGHT: QT_TRANSLATE_NOOP("device", "Top left"),
+                            DeviceConfig.ALIGNMENT_CORNER_TOP_RIGHT: QT_TRANSLATE_NOOP("device", "Bottom left"),
+                            DeviceConfig.ALIGNMENT_CORNER_TOP_LEFT: QT_TRANSLATE_NOOP("device", "Bottom right"),
                         }
                         to_string = lambda v: QApplication.translate('device', labels[v])
                     Label:
@@ -258,17 +324,8 @@ enamldef DeviceConfigView(Container):
                         v_y.value ::  model.work_area_offset.y = from_unit(change['value'], units)
                     Label:
                         text = QApplication.translate("device", "Paper alignment corner")
-                    ObjectCombo:
-                        items = list(model.get_member('paper_corner').items)
-                        selected := model.paper_corner
-                        attr labels = {
-                            DeviceConfig.ALIGNMENT_CORNER_ZERO: QT_TRANSLATE_NOOP("device", "Origin corner (default)"),
-                            DeviceConfig.ALIGNMENT_CORNER_TOP_LEFT: QT_TRANSLATE_NOOP("device", "Top left"),
-                            DeviceConfig.ALIGNMENT_CORNER_TOP_RIGHT: QT_TRANSLATE_NOOP("device", "Top right"),
-                            DeviceConfig.ALIGNMENT_CORNER_BOTTOM_LEFT: QT_TRANSLATE_NOOP("device", "Bottom left"),
-                            DeviceConfig.ALIGNMENT_CORNER_BOTTOM_RIGHT: QT_TRANSLATE_NOOP("device", "Bottom right"),
-                        }
-                        to_string = lambda v: QApplication.translate('device', labels[v])
+                    AlignmentChoice9:
+                        value := model.paper_corner
                     Label:
                         text = QApplication.translate("device", "Paper offset")
                     OffsetBox:

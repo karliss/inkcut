@@ -222,7 +222,6 @@ class Job(Model):
     _desired_copies = Int(1)  # required for auto copies
 
     quadrant_direction = Instance(QPointF)
-    page_direction = Instance(QPointF)
 
     def __str__(self):
         source = self.document
@@ -292,9 +291,6 @@ class Job(Model):
         return doc
 
     def _default_content_direction(self):
-        return QPointF(1, 1)
-
-    def _default_page_direction(self):
         return QPointF(1, 1)
 
     @observe('path', 'order', 'filters')
@@ -456,9 +452,10 @@ class Job(Model):
         page_area = self.material.get_content_rect(self.quadrant_direction)
 
         # TODO: add UI option for aligning to any corner
-        t_align = self.align_rect_to_rect(bbox, page_area,
-                                          Job.JOB_AXIS_ALIGN_MID if self.align_center[0] else Job.JOB_AXIS_ALIGN_ZERO,
-                                          Job.JOB_AXIS_ALIGN_MID if self.align_center[1] else Job.JOB_AXIS_ALIGN_ZERO)
+        t_align = AreaBase.align_rect_to_rect(bbox, page_area,
+                                          AreaBase.JOB_AXIS_ALIGN_MID if self.align_center[0] else AreaBase.JOB_AXIS_ALIGN_ZERO,
+                                          AreaBase.JOB_AXIS_ALIGN_MID if self.align_center[1] else AreaBase.JOB_AXIS_ALIGN_ZERO,
+                                          self.quadrant_direction)
 
         model:QPainterPath = t_align.map(model)
 
@@ -482,29 +479,6 @@ class Job(Model):
             model.moveTo(end_point)
 
         return model
-
-    @staticmethod
-    def align_axis(o1: float, o2: float, b1: float, b2: float, side: int) -> float:
-        if side == Job.JOB_AXIS_ALIGN_MIN:
-            return b1 - o1
-        if side == Job.JOB_AXIS_ALIGN_MAX:
-            return b2 - o2
-        return (b1 + b2) / 2 - (o1 + o2) / 2
-
-    JOB_AXIS_ALIGN_MIN = -1
-    JOB_AXIS_ALIGN_MAX = 1
-    JOB_AXIS_ALIGN_MID = 0
-    JOB_AXIS_ALIGN_ZERO = 2
-
-    def align_rect_to_rect(self, from_rect: QRectF, to_rect: QRectF, align_x, align_y) -> QTransform:
-        if align_x == Job.JOB_AXIS_ALIGN_ZERO:
-            align_x = 1 if self.quadrant_direction.x() < 0 else -1
-        if align_y == Job.JOB_AXIS_ALIGN_ZERO:
-            align_y = 1 if self.quadrant_direction.y() < 0 else -1
-
-        dx = Job.align_axis(from_rect.left(), from_rect.right(), to_rect.left(), to_rect.right(), align_x)
-        dy = Job.align_axis(from_rect.top(), from_rect.bottom(), to_rect.top(), to_rect.bottom(), align_y)
-        return QTransform.fromTranslate(dx, dy)
 
     def _check_bounds(self, plot, area):
         """ Checks that the width and height of plot are less than the width
@@ -578,10 +552,8 @@ class Job(Model):
     def state(self):
         pass
 
-    def set_direction(self, direction: QPointF, page_corner_direction: QPointF):
+    def set_direction(self, direction: QPointF):
         self.quadrant_direction = direction
-        self.page_direction = page_corner_direction
-
     @property
     def move_path(self):
         """ Returns the path the head moves when not cutting

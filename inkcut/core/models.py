@@ -9,6 +9,7 @@ Created on Dec 6, 2017
 
 @author: jrm
 """
+import math
 import os
 import json
 import enaml
@@ -177,6 +178,48 @@ class AreaBase(Model):
     def available_area(self):
         return self.get_content_rect()
 
+    @staticmethod
+    def align_axis(o1: float, o2: float, b1: float, b2: float, side: int) -> float:
+        if side == AreaBase.JOB_AXIS_ALIGN_MIN:
+            return b1 - o1
+        if side == AreaBase.JOB_AXIS_ALIGN_MAX:
+            return b2 - o2
+        return (b1 + b2) / 2 - (o1 + o2) / 2
+
+    JOB_AXIS_ALIGN_ZERO = -2
+    JOB_AXIS_ALIGN_MIN = -1
+    JOB_AXIS_ALIGN_MID = 0
+    JOB_AXIS_ALIGN_MAX = 1
+
+    @staticmethod
+    def combine_alignment(x, y):
+        return ((x - AreaBase.JOB_AXIS_ALIGN_ZERO) << 4) + (y - AreaBase.JOB_AXIS_ALIGN_ZERO)
+
+    @staticmethod
+    def split_alignment(v):
+        x = (v >> 4) + AreaBase.JOB_AXIS_ALIGN_ZERO
+        y = (v & 3) + AreaBase.JOB_AXIS_ALIGN_ZERO
+        return x, y
+
+    @staticmethod
+    def align_rect_to_rect_combined(from_rect: QRectF, to_rect: QRectF, alignment_value,
+                                    forward_direction=QPointF(1, 1)) -> QTransform:
+        align_x, align_y = AreaBase.split_alignment(alignment_value)
+        return AreaBase.align_rect_to_rect(from_rect, to_rect,
+                                           align_x, align_y, forward_direction)
+
+    @staticmethod
+    def align_rect_to_rect(from_rect: QRectF, to_rect: QRectF, align_x, align_y,
+                           forward_direction=QPointF(1, 1)) -> QTransform:
+        if align_x == AreaBase.JOB_AXIS_ALIGN_ZERO:
+            align_x = 1 if forward_direction.x() < 0 else -1
+        if align_y == AreaBase.JOB_AXIS_ALIGN_ZERO:
+            align_y = 1 if forward_direction.y() < 0 else -1
+
+        dx = AreaBase.align_axis(from_rect.left(), from_rect.right(), to_rect.left(), to_rect.right(), align_x)
+        dy = AreaBase.align_axis(from_rect.top(), from_rect.bottom(), to_rect.top(), to_rect.bottom(), align_y)
+        return QTransform.fromTranslate(dx, dy)
+
 
 class PointF(Model):
     x = Float().tag(config=True)
@@ -184,6 +227,9 @@ class PointF(Model):
 
     def to_qt(self) -> QPointF:
         return QPointF(self.x, self.y)
+
+    def length(self):
+        return math.sqrt(self.x * self.x + self.y * self.y)
 
 
 class Plugin(EnamlPlugin):

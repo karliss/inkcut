@@ -156,8 +156,7 @@ class PreviewPlugin(Plugin):
         view_items = []
 
         if job:
-            job.set_direction(device.config.expansion_direction,
-                              device.config.page_placement_direction)
+            job.set_direction(device.config.expansion_direction)
 
         #: Transform used by the view
         plot = self.live_preview

@@ -349,8 +349,8 @@ class DeviceConfig(Model):
     area_alignment_corner = Enum(ALIGNMENT_CORNER_ZERO, ALIGNMENT_CORNER_TOP_LEFT, ALIGNMENT_CORNER_TOP_RIGHT,
                                  ALIGNMENT_CORNER_BOTTOM_LEFT, ALIGNMENT_CORNER_BOTTOM_RIGHT).tag(config=True)
     work_area_offset = Instance(PointF, args=()).tag(config=True)
-    paper_corner = Enum(ALIGNMENT_CORNER_ZERO, ALIGNMENT_CORNER_TOP_LEFT, ALIGNMENT_CORNER_TOP_RIGHT,
-                            ALIGNMENT_CORNER_BOTTOM_LEFT, ALIGNMENT_CORNER_BOTTOM_RIGHT).tag(config=True)
+    paper_corner = Int(AreaBase.combine_alignment(AreaBase.JOB_AXIS_ALIGN_ZERO, AreaBase.JOB_AXIS_ALIGN_ZERO)).tag(
+        config=True)
     paper_offset = Instance(PointF, args=()).tag(config=True)
 
     extra_scale : Float = Float(1.0).tag(config=True)
@@ -481,13 +481,6 @@ class DeviceConfig(Model):
                 direction.setX(-1)
             return direction
         return DeviceConfig.corner_to_rect_direction(self.area_alignment_corner)
-
-    @property
-    def page_placement_direction(self) -> QPointF:
-        if self.paper_corner == DeviceConfig.ALIGNMENT_CORNER_ZERO:
-            return self.expansion_direction
-        return DeviceConfig.corner_to_rect_direction(self.paper_corner)
-
     @property
     def working_area_rect(self) -> QRectF:
         return self.area.get_rect(self.expansion_direction, self.work_area_offset.to_qt())
@@ -499,7 +492,9 @@ class DeviceConfig(Model):
     def get_paper_to_work_transform(self, paper_area: AreaBase):
         work_area = self.working_area_rect
         paper = paper_area.get_rect(self.expansion_direction)
-        return AreaBase.align_rect(paper, work_area, self.page_placement_direction, self.paper_offset.to_qt())
+        return AreaBase.align_rect_to_rect_combined(paper, work_area, self.paper_corner,
+                                                    self.expansion_direction).translate(self.paper_offset.x,
+                                                                                        self.paper_offset.y)
 
 
 class Device(Model):

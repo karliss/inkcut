@@ -198,8 +198,7 @@ class JobPlugin(Plugin):
         plugin = self.workbench.get_plugin("inkcut.device")
         device = plugin.device
         device_config:DeviceConfig = device.config
-        job.set_direction(device_config.expansion_direction,
-                          device_config.page_placement_direction)
+        job.set_direction(device_config.expansion_direction)
 
         #: Apply the final output transforms from the device
         page_transform = QTransform()
