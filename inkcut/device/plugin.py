@@ -326,14 +326,14 @@ class DeviceConfig(Model):
 
     AXIS_MAP_MODES = {
         AXIS_MAP_XR_YU: QT_TRANSLATE_NOOP("device_axis", "X: right, Y: up"),
-        AXIS_MAP_XL_YU: QT_TRANSLATE_NOOP("device_axis", "X: left, Y: up"),
-        AXIS_MAP_XR_YD: QT_TRANSLATE_NOOP("device_axis", "X: right, Y: down"),
+        AXIS_MAP_XL_YU: QT_TRANSLATE_NOOP("device_axis", "X: left, Y: up (M)"),
+        AXIS_MAP_XR_YD: QT_TRANSLATE_NOOP("device_axis", "X: right, Y: down (M)"),
         AXIS_MAP_XL_YD: QT_TRANSLATE_NOOP("device_axis", "X: left, Y: down"),
 
-        AXIS_MAP_XU_YR: QT_TRANSLATE_NOOP("device_axis", "X: up, Y: right"),
+        AXIS_MAP_XU_YR: QT_TRANSLATE_NOOP("device_axis", "X: up, Y: right (M)"),
         AXIS_MAP_XD_YR: QT_TRANSLATE_NOOP("device_axis", "X: down, Y: right"),
         AXIS_MAP_XU_YL: QT_TRANSLATE_NOOP("device_axis", "X: up, Y: left"),
-        AXIS_MAP_XD_YL: QT_TRANSLATE_NOOP("device_axis", "X: down, Y: left"),
+        AXIS_MAP_XD_YL: QT_TRANSLATE_NOOP("device_axis", "X: down, Y: left (M)"),
 
         AXIS_MAP_CUSTOM: QT_TRANSLATE_NOOP("device_axis", "Custom"),
     }

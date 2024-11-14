@@ -32,3 +32,7 @@ class DebugProtocol(DeviceProtocol):
 
     def connection_lost(self):
         log.debug("protocol.connection_lost()")
+
+    @property
+    def protocol_scale(self):
+        return 1

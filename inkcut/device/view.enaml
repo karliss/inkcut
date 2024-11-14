@@ -65,6 +65,28 @@ enamldef OffsetBox(Container): this:
         maximum = 99999.9
         single_step = 0.1
 
+def from_scale_mul(v, unit):
+    if unit == "step/in":
+        return v * from_unit(1, "in")
+    elif unit == "step/mm":
+        return v * from_unit(1, "mm")
+    elif unit == "mm/step":
+        return to_unit(1, "mm") / v
+    elif unit == "in/step":
+        return to_unit(1, "in") / v
+    return v
+
+def to_scale_mul(v, unit):
+    if unit == "step/in":
+        return to_unit(v, "in")
+    elif unit == "step/mm":
+        return to_unit(v, "mm")
+    elif unit == "mm/step":
+        return to_unit(1, "mm") / v
+    elif unit == "in/step":
+        return to_unit(1, "in") / v
+    return v
+
 enamldef DeviceConfigView(Container):
     attr model: DeviceConfig
     attr plugin
@@ -142,14 +164,33 @@ enamldef DeviceConfigView(Container):
                             item = change['value']
                             if item:
                                 model.axis_mapping = item[0]
-                Label:
+                Label: es_label:
                     text = QApplication.translate("device", "Extra scale")
-                    tool_tip = QApplication.translate("device", "Should only be used if device protocol lacks ability to negotiate scale, or implements the protocol incorrectly")
-                DoubleSpinBox:
-                    decimals = 7
-                    single_step = 0.1
-                    maximum = 10000000
-                    value := model.extra_scale
+                    tool_tip = QApplication.translate("device", "Should only be used if device protocol lacks ability to negotiate scale, or implements the protocol incorrectly.")
+                Container:
+                    padding = 0
+                    constraints = [
+                        hbox(es, es_unit)
+                    ]
+                    DoubleSpinBox: es:
+                        decimals = 7
+                        single_step = 0.1
+                        maximum = 10000000
+                        value << from_scale_mul(model.extra_scale, es_unit.selected[0])
+                        value :: model.extra_scale = to_scale_mul(change['value'], es_unit.selected[0])
+                        tool_tip << es_label.tool_tip
+                    ObjectCombo: es_unit:
+                        items << [
+                            ("mul", QApplication.translate("device", "multiplier")),
+                            ("mm/step", QApplication.translate("device", "mm/step")),
+                            ("in/step", QApplication.translate("device", "in/step")),
+                            ("step/mm", QApplication.translate("device", "step/mm")),
+                            ("step/in", QApplication.translate("device", "step/in")),
+                        ]
+                        to_string = lambda v: v[1]
+                        tool_tip = QApplication.translate("device", "Display units for extra scale multiplier. Does"\
+                            "not affect units used for communicating with device. It is recommended to disable "\
+                            "protocol level scaling when using steps/in or mm/step here.")
                 Conditional:
                     condition << model.axis_mapping == DeviceConfig.AXIS_MAP_CUSTOM
                     Label:
