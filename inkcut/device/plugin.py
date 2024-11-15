@@ -429,8 +429,8 @@ class DeviceConfig(Model):
                               x2, y2,
                               x3, y3)
 
-
-    @observe('area', 'axis_mapping', 'area_alignment_corner')
+    @observe('area', 'axis_mapping', 'area_alignment_corner',
+             'work_area_offset', 'paper_corner', 'paper_offset', 'extra_scale', 'custom_mapping')
     def refresh_transform(self, change):
         self._transform = None
         self._inverse_transform = None
