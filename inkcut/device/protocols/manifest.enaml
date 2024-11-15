@@ -11,13 +11,15 @@ from inkcut.device.extensions import DEVICE_PROTOCOL_POINT, DeviceProtocol
 
 
 def gpgl_factory(driver, declaration):
-    from .gpgl import GPGLProtocol
-    return GPGLProtocol(declaration=declaration)
+    from .gpgl import GPGLProtocol, GPGLConfig
+    return GPGLProtocol(declaration=declaration,
+                        config=GPGLConfig(**driver.get_protocol_config('gpgl')))
 
 
 def hpgl_factory(driver, declaration):
     from .hpgl import HPGLProtocol
-    return HPGLProtocol(declaration=declaration)
+    return HPGLProtocol(declaration=declaration,
+                        config=GPGLConfig(**driver.get_protocol_config('hpgl')))
 
 
 def dmpl_factory(driver, declaration):

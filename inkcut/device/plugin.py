@@ -303,10 +303,6 @@ class DeviceConfig(Model):
     #: Final output rotation
     rotation = Enum(0, 90, -90).tag(config=True)
 
-    #: Swap x and y axis
-    swap_xy = Bool().tag(config=True)
-    mirror_y = Bool().tag(config=True)
-    mirror_x = Bool().tag(config=True)
 
     area = Instance(AreaBase).tag(config=True)
 
@@ -355,9 +351,6 @@ class DeviceConfig(Model):
 
     extra_scale : Float = Float(1.0).tag(config=True)
     custom_mapping = ContainerList(Float(strict=False), default=[1, 0, 0, 0, 1, 0]).tag(config=True)
-
-    #: Final out scaling
-    scale = ContainerList(Float(strict=False), default=[1, 1]).tag(config=True)
 
     #: Defines prescaling before conversion to a polygon
     quality_factor = Float(1, strict=False).tag(config=True)
@@ -496,6 +489,29 @@ class DeviceConfig(Model):
                                                     self.expansion_direction).translate(self.paper_offset.x,
                                                                                         self.paper_offset.y)
 
+    @staticmethod
+    def from_scale_mul(v, unit):
+        if unit == "step/in":
+            return v * from_unit(1, "in")
+        elif unit == "step/mm":
+            return v * from_unit(1, "mm")
+        elif unit == "mm/step":
+            return to_unit(1, "mm") / v
+        elif unit == "in/step":
+            return to_unit(1, "in") / v
+        return v
+
+    @staticmethod
+    def to_scale_mul(v, unit):
+        if unit == "step/in":
+            return to_unit(v, "in")
+        elif unit == "step/mm":
+            return to_unit(v, "mm")
+        elif unit == "mm/step":
+            return to_unit(1, "mm") / v
+        elif unit == "in/step":
+            return to_unit(1, "in") / v
+        return v
 
 class Device(Model):
     """ The standard device. This is a standard model used throughout the
@@ -669,39 +685,6 @@ class Device(Model):
             new_dev.connection.config = copy.deepcopy(self.connection.config)
 
         return new_dev
-
-    def transform_tmp(self, path):
-        """ Apply the device output transform to the given path. This
-        is used by other plugins that may need to display or work with
-        tranformed output.
-
-        Parameters
-        ----------
-            path: QPainterPath
-                Path to transform
-
-        Returns
-        -------
-            path: QPainterPath
-
-        """
-        config = self.config
-
-        t = QtGui.QTransform()
-
-        #: Order matters!
-        if config.scale:
-            #: Do final output scaling
-            t.scale(*config.scale)
-
-        if config.rotation:
-            #: Do final output rotation
-            t.rotate(config.rotation)
-
-        #: TODO: Translate back to 0,0 so all coordinates are positive
-        path = t.map(path)
-
-        return path
 
     def init(self, job):
         """ Initialize the job. This should do any final path manipulation

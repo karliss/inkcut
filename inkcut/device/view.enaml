@@ -66,28 +66,6 @@ enamldef OffsetBox(Container): this:
         maximum = 99999.9
         single_step = 0.1
 
-def from_scale_mul(v, unit):
-    if unit == "step/in":
-        return v * from_unit(1, "in")
-    elif unit == "step/mm":
-        return v * from_unit(1, "mm")
-    elif unit == "mm/step":
-        return to_unit(1, "mm") / v
-    elif unit == "in/step":
-        return to_unit(1, "in") / v
-    return v
-
-def to_scale_mul(v, unit):
-    if unit == "step/in":
-        return to_unit(v, "in")
-    elif unit == "step/mm":
-        return to_unit(v, "mm")
-    elif unit == "mm/step":
-        return to_unit(1, "mm") / v
-    elif unit == "in/step":
-        return to_unit(1, "in") / v
-    return v
-
 enamldef AlignmentChoice9(Container): alignment_widget:
     padding = 0
     attr value = AreaBase.combine_alignment(AreaBase.JOB_AXIS_ALIGN_ZERO, AreaBase.JOB_AXIS_ALIGN_ZERO)
@@ -192,32 +170,6 @@ enamldef DeviceConfigView(Container):
             title = QApplication.translate("device", "Output")
             Form:
                 Label:
-                    text = "x"
-                DoubleSpinBox:
-                    value := model.scale[0]
-                    decimals = 6
-                    minimum = -9999.9
-                    maximum = 9999.9
-                    tool_tip = textwrap.dedent("""
-                    Final output scale for the x-axis.
-                    A value of '1' here means '90 points per inch'. For example:
-                    Suppose your device is 96 ppi, configure 96/90=1.06 here.
-                    Suppose your device is 200 points per cm, configure 200*2.54/90=5.64 here.
-                    """).strip()
-                Label:
-                    text = "y"
-                DoubleSpinBox:
-                    value := model.scale[1]
-                    decimals = 6
-                    minimum = -9999.9
-                    maximum = 9999.9
-                    tool_tip = textwrap.dedent("""
-                        Final output scale for the y-axis.
-                        A value of '1' here means '90 points per inch'. For example:
-                        Suppose your device is 96 ppi, configure 96/90=1.06 here.
-                        Suppose your device is 200 points per cm, configure 200*2.54/90=5.64 here.
-                        """).strip()
-                Label:
                     text = QApplication.translate("device", "Axis mapping")
                 ObjectCombo: axis_mode:
                     items  = list(DeviceConfig.AXIS_MAP_MODES.items())
@@ -229,7 +181,7 @@ enamldef DeviceConfigView(Container):
                                 model.axis_mapping = item[0]
                 Label: es_label:
                     text = QApplication.translate("device", "Extra scale")
-                    tool_tip = QApplication.translate("device", "Should only be used if device protocol lacks ability to negotiate scale, or implements the protocol incorrectly.")
+                    tool_tip = QApplication.translate("device", "Should only be used if device protocol lacks ability to negotiate or configure scale, implements the protocol incorrectly, or fine tuning exact scale.")
                 Container:
                     padding = 0
                     constraints = [
@@ -239,8 +191,8 @@ enamldef DeviceConfigView(Container):
                         decimals = 7
                         single_step = 0.1
                         maximum = 10000000
-                        value << from_scale_mul(model.extra_scale, es_unit.selected[0])
-                        value :: model.extra_scale = to_scale_mul(change['value'], es_unit.selected[0])
+                        value << DeviceConfig.from_scale_mul(model.extra_scale, es_unit.selected[0])
+                        value :: model.extra_scale = DeviceConfig.to_scale_mul(change['value'], es_unit.selected[0])
                         tool_tip << es_label.tool_tip
                     ObjectCombo: es_unit:
                         items << [
