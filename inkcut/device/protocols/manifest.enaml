@@ -17,9 +17,9 @@ def gpgl_factory(driver, declaration):
 
 
 def hpgl_factory(driver, declaration):
-    from .hpgl import HPGLProtocol
+    from .hpgl import HPGLProtocol, HPGLConfig
     return HPGLProtocol(declaration=declaration,
-                        config=GPGLConfig(**driver.get_protocol_config('hpgl')))
+                        config=HPGLConfig(**driver.get_protocol_config('hpgl')))
 
 
 def dmpl_factory(driver, declaration):
