@@ -10,11 +10,8 @@ Created on Jan 16, 2015
 
 @author: jrm
 """
-from typing import Optional
-
 import enaml
 import traceback
-
 from atom.api import (
     Typed, List, Instance, ForwardInstance, ContainerList, Bool, Str,
     Int, Float, Enum, Bytes, observe
@@ -28,12 +25,11 @@ from enaml.application import timed_call
 from inkcut.core.api import Model, Plugin, AreaBase, PointF
 from inkcut.core.utils import parse_unit, from_unit, to_unit, async_sleep, log
 from inkcut.job.models import Job
+from typing import Optional
 from twisted.internet import defer
 from io import BytesIO
 from . import extensions
 import copy
-
-from ..core import utils
 
 
 class DeviceError(AssertionError):
@@ -300,10 +296,6 @@ class DeviceConfig(Model):
     #: set this to a high number like 2000 or 3000
     sample_rate = Int(100).tag(config=True)
 
-    #: Final output rotation
-    rotation = Enum(0, 90, -90).tag(config=True)
-
-
     area = Instance(AreaBase).tag(config=True)
 
     AXIS_FLAG_H_LEFT = 1
@@ -349,7 +341,7 @@ class DeviceConfig(Model):
         config=True)
     paper_offset = Instance(PointF, args=()).tag(config=True)
 
-    extra_scale : Float = Float(1.0).tag(config=True)
+    extra_scale: Float = Float(1.0).tag(config=True)
     custom_mapping = ContainerList(Float(strict=False), default=[1, 0, 0, 0, 1, 0]).tag(config=True)
 
     #: Defines prescaling before conversion to a polygon
@@ -381,8 +373,8 @@ class DeviceConfig(Model):
     commands_connect = Str().tag(config=True)
     commands_disconnect = Str().tag(config=True)
 
-    _transform: Optional[QTransform] #= Instance(QTransform, optional=True)
-    _inverse_transform: Optional[QTransform]  # = Instance(QTransform, optional=True)
+    _transform: Optional[QTransform]
+    _inverse_transform: Optional[QTransform]
 
     def _default_step_time(self):
         """ Determine the step time based on the device speed setting
@@ -397,7 +389,7 @@ class DeviceConfig(Model):
             return 0
 
         #: No determine the time and convert to ms
-        return max(0, round(1000*self.step_size/speed))
+        return max(0, round(1000 * self.step_size / speed))
 
     def _default_area(self):
         return AreaBase()
@@ -434,11 +426,13 @@ class DeviceConfig(Model):
     def refresh_transform(self, change):
         self._transform = None
         self._inverse_transform = None
+
     @property
     def transform(self):
         if self._transform is None:
             self._transform = self.make_transform(self.area)
         return self._transform
+
     @property
     def inverse_transform(self):
         if not self._inverse_transform:
@@ -449,7 +443,6 @@ class DeviceConfig(Model):
                 log.warn("failed to inverse trans")
                 self._inverse_transform = QTransform()
         return self._inverse_transform
-
 
     @staticmethod
     def corner_to_rect_direction(corner):
@@ -462,6 +455,7 @@ class DeviceConfig(Model):
         elif corner == DeviceConfig.ALIGNMENT_CORNER_TOP_RIGHT:
             return QPointF(-1, 1)
         ValueError("Unexpected corner {}".format(corner))
+
     @property
     def expansion_direction(self) -> QPointF:
         if self.area_alignment_corner == DeviceConfig.ALIGNMENT_CORNER_ZERO:
@@ -474,6 +468,7 @@ class DeviceConfig(Model):
                 direction.setX(-1)
             return direction
         return DeviceConfig.corner_to_rect_direction(self.area_alignment_corner)
+
     @property
     def working_area_rect(self) -> QRectF:
         return self.area.get_rect(self.expansion_direction, self.work_area_offset.to_qt())
@@ -513,6 +508,7 @@ class DeviceConfig(Model):
             return to_unit(1, "in") / v
         return v
 
+
 class Device(Model):
     """ The standard device. This is a standard model used throughout the
     application. An instance of this is configured by specifying a
@@ -544,7 +540,7 @@ class Device(Model):
     connection = Instance(DeviceTransport).tag(config=True)
 
     #: List of jobs that were run on this device
-    jobs = List(Model)#.tag(config=True)
+    jobs = List(Model).tag(config=True)
 
     #: List of jobs queued to run on this device
     queue = List(Model).tag(config=True)
@@ -581,7 +577,6 @@ class Device(Model):
         if not h:
             h = 900000
         self.config.area.size[1] = h
-
 
     def _default_connection(self):
         """ If no connection is set when the device is created,

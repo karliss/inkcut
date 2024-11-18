@@ -55,11 +55,10 @@ class GCodeConfig(Model):
 
 
 class GCodeProtocol(DeviceProtocol):
-
     config = Instance(GCodeConfig, ()).tag(config=True)
 
     _currently_up = Bool()
-    scale = Float(25.4/90)
+    scale = Float(25.4 / 90)
     _ok_waiting = Int(default=0)
     _receive_buffer = Bytes()
     _reactor = atom.api.Value()

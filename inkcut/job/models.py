@@ -324,7 +324,7 @@ class Job(Model):
         t.scale(
             self.scale[0] * (self.mirror[0] and -1 or 1),
             self.scale[1] * (self.mirror[1] and -1 or 1),
-            )
+        )
 
         bbox_c = t.mapRect(bbox)
 
@@ -364,7 +364,6 @@ class Job(Model):
                 t = QTransform.fromScale(s, s)
                 path = t.map(optimized_path)
                 bbox = t.mapRect(bbox)
-
 
         return bbox, path
 
@@ -443,7 +442,7 @@ class Job(Model):
             model.addPath(copy_transform.map(path))
             c += 1
 
-        bbox:QRectF = combined_box
+        bbox: QRectF = combined_box
 
         # Create weedline
         if self.plot_weedline:
@@ -453,11 +452,13 @@ class Job(Model):
 
         # TODO: add UI option for aligning to any corner
         t_align = AreaBase.align_rect_to_rect(bbox, page_area,
-                                          AreaBase.JOB_AXIS_ALIGN_MID if self.align_center[0] else AreaBase.JOB_AXIS_ALIGN_ZERO,
-                                          AreaBase.JOB_AXIS_ALIGN_MID if self.align_center[1] else AreaBase.JOB_AXIS_ALIGN_ZERO,
-                                          self.quadrant_direction)
+                                              AreaBase.JOB_AXIS_ALIGN_MID if self.align_center[
+                                                  0] else AreaBase.JOB_AXIS_ALIGN_ZERO,
+                                              AreaBase.JOB_AXIS_ALIGN_MID if self.align_center[
+                                                  1] else AreaBase.JOB_AXIS_ALIGN_ZERO,
+                                              self.quadrant_direction)
 
-        model:QPainterPath = t_align.map(model)
+        model: QPainterPath = t_align.map(model)
 
         final_bounds = model.boundingRect()
 
@@ -491,7 +492,7 @@ class Job(Model):
         """ Generator that creates positions of points
 
         """
-        other_axis = axis +1 % 2
+        other_axis = axis + 1 % 2
         direction = (direction.x(), direction.y())
         anchor = [0, 0]
         p = [0, 0]
@@ -509,11 +510,11 @@ class Job(Model):
             p[axis] = anchor[axis]
             yield p  # Beginning of each row
 
-            for i in range(stack_size[axis]-1):
-                p[axis] += (d[axis]+pad[axis]) * direction[axis]
+            for i in range(stack_size[axis] - 1):
+                p[axis] += (d[axis] + pad[axis]) * direction[axis]
                 yield p
 
-            p[other_axis] += (d[other_axis]+pad[other_axis]) * direction[other_axis]
+            p[other_axis] += (d[other_axis] + pad[other_axis]) * direction[other_axis]
 
     def _compute_stack_sizes(self, path, bbox):
         # Usable area
@@ -529,7 +530,7 @@ class Job(Model):
         p = [0, 0]
         for i in range(2):
             # Compute stack
-            while (p[i]+size[i]) < a[i]:  # while another one fits
+            while (p[i] + size[i]) < a[i]:  # while another one fits
                 stack_size[i] += 1
                 p[i] += size[i] + self.copy_spacing[i]  # Add only to end
 
@@ -541,7 +542,8 @@ class Job(Model):
         by creating a box around the path with the given padding
 
         """
-        bbox = bbox.adjusted(-padding[Padding.LEFT], -padding[Padding.TOP], padding[Padding.RIGHT], padding[Padding.BOTTOM])
+        bbox = bbox.adjusted(-padding[Padding.LEFT], -padding[Padding.TOP],
+                             padding[Padding.RIGHT], padding[Padding.BOTTOM])
 
         path.addRect(bbox)
         transform = AreaBase.rect_to_corner(bbox, self.quadrant_direction)
@@ -554,6 +556,7 @@ class Job(Model):
 
     def set_direction(self, direction: QPointF):
         self.quadrant_direction = direction
+
     @property
     def move_path(self):
         """ Returns the path the head moves when not cutting

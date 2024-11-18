@@ -173,7 +173,8 @@ class AreaBase(Model):
         if not page_alignment:
             page_alignment = QPointF(1, 1)
         return self.get_rect(page_alignment, offset).adjusted(self.padding_left, self.padding_top,
-                                                      -self.padding_right, -self.padding_bottom)
+                                                              -self.padding_right, -self.padding_bottom)
+
     @property
     def available_area(self):
         return self.get_content_rect()

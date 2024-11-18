@@ -22,7 +22,7 @@ class DMPLConfig(Model):
     SCALE_1_MM = 3
     SCALE_025_MM = 4
 
-    #TODO: LOOK into EC0.
+    # TODO: LOOK into EC0.
     SCALE_MAPPING = {
         SCALE_IGNORE: "",
         SCALE_001_IN: "EC1",
@@ -55,7 +55,7 @@ class DMPLProtocol(DeviceProtocol):
 
     def move(self, x, y, z, absolute=True):
         scale = self.protocol_scale()
-        x, y = int(x*scale), int(y*scale)
+        x, y = int(x * scale), int(y * scale)
         v = self.config.mode
         self.write(" {z}{x},{y} ".format(x=x, y=y, z=z and "D" or "U"))
 

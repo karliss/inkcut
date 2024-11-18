@@ -45,13 +45,13 @@ class HPGLProtocol(DeviceProtocol):
 
     def set_force(self, f):
         self.write("FS%i; " % f)
-        
+
     def set_velocity(self, v):
         self.write("VS%i;" % v)
-        
+
     def set_pen(self, p):
         self.write("SP%i;" % p)
-        
+
     def finish(self):
         # Reinitialize
         self.write("IN;")

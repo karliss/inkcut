@@ -15,8 +15,8 @@ from inkcut.device.plugin import DeviceProtocol, Model
 
 class GPGLConfig(Model):
     SCALE_IGNORE = 0
-    SCALE_1MM = 1 # 0.1mm
-    SCALE_025MM = 2 # 0.025mm
+    SCALE_1MM = 1  # 0.1mm
+    SCALE_025MM = 2  # 0.025mm
 
     unit_mode = Enum(SCALE_025MM, SCALE_1MM, SCALE_IGNORE).tag(config=True)
 
@@ -34,7 +34,7 @@ class GPGLProtocol(DeviceProtocol):
         x = round(x)
         y = round(y)
         if absolute:
-            self.write("%s%i,%i"%('D' if z else 'M', x, y))
+            self.write("%s%i,%i" % ('D' if z else 'M', x, y))
         else:
             self.write("%s%i,%i" % ('E' if z else 'O', x, y))
 

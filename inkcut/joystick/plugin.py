@@ -93,7 +93,7 @@ class JoystickPlugin(Plugin):
 
     @with_connection
     def move_up(self):
-        self.device.move([0, - self.rate, 0], absolute=False)
+        self.device.move([0, -self.rate, 0], absolute=False)
 
     @with_connection
     def move_down(self):
