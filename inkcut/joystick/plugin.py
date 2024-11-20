@@ -11,7 +11,7 @@ Created on Jul 19, 2015
 @author: jrm
 """
 import functools
-from atom.api import Instance, Int, observe
+from atom.api import Instance, Float, observe
 from enaml.qt import QtCore, QtGui
 from twisted.internet import defer
 
@@ -43,7 +43,7 @@ class JoystickPlugin(Plugin):
     device = Instance(Device)
 
     #: Rate to move
-    rate = Int(100).tag(config=True)
+    rate = Float(1).tag(config=True)
     path = Instance(QtGui.QPainterPath)
 
     #: Reference to the device plugin
@@ -83,35 +83,34 @@ class JoystickPlugin(Plugin):
 
     @with_connection
     def move_to_origin(self, system=False):
-        x, y, z = [0, 0, 0] if system else self.device.origin
+        if system:
+            x, y = 0, 0
+        else:
+            origin = self.device.origin
+            pos = self.device.config.inverse_transform.map_point(QtCore.QPointF(origin.x(), origin.y()))
+            x, y = pos.x(), pos.y()
         self.device.move([x, y, 0], absolute=True)
 
     @with_connection
     def move_up(self):
-        x, y, z = self.device.position
-        self.device.move([x, y+self.rate, z], absolute=True)
+        self.device.move([0, -self.rate, 0], absolute=False)
 
     @with_connection
     def move_down(self):
-        x, y, z = self.device.position
-        self.device.move([x, y-self.rate, z], absolute=True)
+        self.device.move([0, self.rate, 0], absolute=False)
 
     @with_connection
     def move_left(self):
-        x, y, z = self.device.position
-        self.device.move([x-self.rate, y, z], absolute=True)
+        self.device.move([-self.rate, 0, 0], absolute=False)
 
     @with_connection
     def move_right(self):
-        x, y, z = self.device.position
-        self.device.move([x+self.rate, y, z], absolute=True)
+        self.device.move([self.rate, 0, 0], absolute=False)
 
     @with_connection
     def move_head_up(self):
-        x, y, z = self.device.position
-        self.device.move([x, y, 0], absolute=True)
+        self.device.move([0, 0, 0], absolute=False)
 
     @with_connection
     def move_head_down(self):
-        x, y, z = self.device.position
-        self.device.move([x, y, 1], absolute=True)
+        self.device.move([0, 0, 1], absolute=False)

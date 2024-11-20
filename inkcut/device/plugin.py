@@ -19,9 +19,13 @@ from atom.api import (
 from contextlib import contextmanager
 from datetime import datetime
 from enaml.qt import QtCore, QtGui
+from enaml.qt.QtCore import QT_TRANSLATE_NOOP, QPointF, QRectF
+from enaml.qt.QtGui import QTransform, QPainterPath
 from enaml.application import timed_call
-from inkcut.core.api import Model, Plugin, AreaBase
+from inkcut.core.api import Model, Plugin, AreaBase, PointF
 from inkcut.core.utils import parse_unit, from_unit, to_unit, async_sleep, log
+from inkcut.job.models import Job
+from typing import Optional
 from twisted.internet import defer
 from io import BytesIO
 from . import extensions
@@ -210,6 +214,15 @@ class DeviceProtocol(Model):
         """
         pass
 
+    @property
+    def protocol_scale(self) -> Float:
+        """The scale for converting from inkcut units to protocol units.
+        The final scale is applied at protocol level, since some of the
+        protocols either define specific units or allow negotiating which
+        units to use.
+        """
+        return 1
+
 
 class DeviceFilter(Model):
     """ A device filter is applied to apply either the QPainterPath or to the
@@ -283,16 +296,53 @@ class DeviceConfig(Model):
     #: set this to a high number like 2000 or 3000
     sample_rate = Int(100).tag(config=True)
 
-    #: Final output rotation
-    rotation = Enum(0, 90, -90).tag(config=True)
+    area = Instance(AreaBase).tag(config=True)
 
-    #: Swap x and y axis
-    swap_xy = Bool().tag(config=True)
-    mirror_y = Bool().tag(config=True)
-    mirror_x = Bool().tag(config=True)
+    AXIS_FLAG_H_LEFT = 1
+    AXIS_FLAG_V_DOWN = 2
+    AXIS_FLAG_SWAPXY = 4
 
-    #: Final out scaling
-    scale = ContainerList(Float(strict=False), default=[1, 1]).tag(config=True)
+    AXIS_MAP_XR_YU = (0 << 2) | (0 << 1) | (0 << 0)
+    AXIS_MAP_XL_YU = (0 << 2) | (0 << 1) | (1 << 0)
+    AXIS_MAP_XR_YD = (0 << 2) | (1 << 1) | (0 << 0)
+    AXIS_MAP_XL_YD = (0 << 2) | (1 << 1) | (1 << 0)
+    AXIS_MAP_XU_YR = (1 << 2) | (0 << 1) | (0 << 0)
+    AXIS_MAP_XU_YL = (1 << 2) | (0 << 1) | (1 << 0)
+    AXIS_MAP_XD_YR = (1 << 2) | (1 << 1) | (0 << 0)
+    AXIS_MAP_XD_YL = (1 << 2) | (1 << 1) | (1 << 0)
+    AXIS_MAP_CUSTOM = 8
+
+    AXIS_MAP_MODES = {
+        AXIS_MAP_XR_YU: QT_TRANSLATE_NOOP("device_axis", "X: right, Y: up"),
+        AXIS_MAP_XL_YU: QT_TRANSLATE_NOOP("device_axis", "X: left, Y: up (M)"),
+        AXIS_MAP_XR_YD: QT_TRANSLATE_NOOP("device_axis", "X: right, Y: down (M)"),
+        AXIS_MAP_XL_YD: QT_TRANSLATE_NOOP("device_axis", "X: left, Y: down"),
+
+        AXIS_MAP_XU_YR: QT_TRANSLATE_NOOP("device_axis", "X: up, Y: right (M)"),
+        AXIS_MAP_XD_YR: QT_TRANSLATE_NOOP("device_axis", "X: down, Y: right"),
+        AXIS_MAP_XU_YL: QT_TRANSLATE_NOOP("device_axis", "X: up, Y: left"),
+        AXIS_MAP_XD_YL: QT_TRANSLATE_NOOP("device_axis", "X: down, Y: left (M)"),
+
+        AXIS_MAP_CUSTOM: QT_TRANSLATE_NOOP("device_axis", "Custom"),
+    }
+
+    axis_mapping = Enum(*AXIS_MAP_MODES.keys()).tag(config=True)
+
+    ALIGNMENT_CORNER_ZERO = 0
+    ALIGNMENT_CORNER_TOP_LEFT = 1
+    ALIGNMENT_CORNER_TOP_RIGHT = 2
+    ALIGNMENT_CORNER_BOTTOM_LEFT = 3
+    ALIGNMENT_CORNER_BOTTOM_RIGHT = 4
+
+    area_alignment_corner = Enum(ALIGNMENT_CORNER_ZERO, ALIGNMENT_CORNER_TOP_LEFT, ALIGNMENT_CORNER_TOP_RIGHT,
+                                 ALIGNMENT_CORNER_BOTTOM_LEFT, ALIGNMENT_CORNER_BOTTOM_RIGHT).tag(config=True)
+    work_area_offset = Instance(PointF, args=()).tag(config=True)
+    paper_corner = Int(AreaBase.combine_alignment(AreaBase.JOB_AXIS_ALIGN_ZERO, AreaBase.JOB_AXIS_ALIGN_ZERO)).tag(
+        config=True)
+    paper_offset = Instance(PointF, args=()).tag(config=True)
+
+    extra_scale: Float = Float(1.0).tag(config=True)
+    custom_mapping = ContainerList(Float(strict=False), default=[1, 0, 0, 0, 1, 0]).tag(config=True)
 
     #: Defines prescaling before conversion to a polygon
     quality_factor = Float(1, strict=False).tag(config=True)
@@ -323,6 +373,9 @@ class DeviceConfig(Model):
     commands_connect = Str().tag(config=True)
     commands_disconnect = Str().tag(config=True)
 
+    _transform: Optional[QTransform]
+    _inverse_transform: Optional[QTransform]
+
     def _default_step_time(self):
         """ Determine the step time based on the device speed setting
 
@@ -336,12 +389,124 @@ class DeviceConfig(Model):
             return 0
 
         #: No determine the time and convert to ms
-        return max(0, round(1000*self.step_size/speed))
+        return max(0, round(1000 * self.step_size / speed))
+
+    def _default_area(self):
+        return AreaBase()
 
     @observe('speed', 'speed_units', 'step_size')
     def _update_step_time(self, change):
         if change['type'] == 'update':
             self.step_time = self._default_step_time()
+
+    def make_transform(self, area: AreaBase):
+        if self.axis_mapping == DeviceConfig.AXIS_MAP_CUSTOM:
+            return QTransform(self.custom_mapping[0] * self.extra_scale, self.custom_mapping[3] * self.extra_scale,
+                              self.custom_mapping[1] * self.extra_scale, self.custom_mapping[4] * self.extra_scale,
+                              self.custom_mapping[2], self.custom_mapping[5])
+        else:
+            x1, x2, x3 = (self.extra_scale, 0, 0)
+            y1, y2, y3 = (0, self.extra_scale, 0)
+
+            if self.axis_mapping & DeviceConfig.AXIS_FLAG_H_LEFT:
+                x1 = -x1
+            if self.axis_mapping & DeviceConfig.AXIS_FLAG_V_DOWN:
+                y2 = y2
+            else:
+                y2 = -y2
+
+            if self.axis_mapping & DeviceConfig.AXIS_FLAG_SWAPXY:
+                x1, x2, x3, y1, y2, y3 = (y1, y2, y3, x1, x2, x3)
+            return QTransform(x1, y1,
+                              x2, y2,
+                              x3, y3)
+
+    @observe('area', 'axis_mapping', 'area_alignment_corner',
+             'work_area_offset', 'paper_corner', 'paper_offset', 'extra_scale', 'custom_mapping')
+    def refresh_transform(self, change):
+        self._transform = None
+        self._inverse_transform = None
+
+    @property
+    def transform(self):
+        if self._transform is None:
+            self._transform = self.make_transform(self.area)
+        return self._transform
+
+    @property
+    def inverse_transform(self):
+        if not self._inverse_transform:
+            inverted, invert_success = self.transform.inverted()
+            if invert_success:
+                self._inverse_transform = inverted
+            else:
+                log.warn("failed to inverse trans")
+                self._inverse_transform = QTransform()
+        return self._inverse_transform
+
+    @staticmethod
+    def corner_to_rect_direction(corner):
+        if corner == DeviceConfig.ALIGNMENT_CORNER_BOTTOM_LEFT:
+            return QPointF(1, -1)
+        elif corner == DeviceConfig.ALIGNMENT_CORNER_BOTTOM_RIGHT:
+            return QPointF(-1, -1)
+        elif corner == DeviceConfig.ALIGNMENT_CORNER_TOP_LEFT:
+            return QPointF(1, 1)
+        elif corner == DeviceConfig.ALIGNMENT_CORNER_TOP_RIGHT:
+            return QPointF(-1, 1)
+        ValueError("Unexpected corner {}".format(corner))
+
+    @property
+    def expansion_direction(self) -> QPointF:
+        if self.area_alignment_corner == DeviceConfig.ALIGNMENT_CORNER_ZERO:
+            if self.axis_mapping == DeviceConfig.AXIS_MAP_CUSTOM:
+                return QPointF(1, 1)  # TODO: do better guess based on custom mapping matrix
+            direction = QPointF(1, 1)
+            if not self.axis_mapping & DeviceConfig.AXIS_FLAG_V_DOWN:
+                direction.setY(-1)
+            if self.axis_mapping & DeviceConfig.AXIS_FLAG_H_LEFT:
+                direction.setX(-1)
+            return direction
+        return DeviceConfig.corner_to_rect_direction(self.area_alignment_corner)
+
+    @property
+    def working_area_rect(self) -> QRectF:
+        return self.area.get_rect(self.expansion_direction, self.work_area_offset.to_qt())
+
+    def get_paper_rect(self, paper_area: AreaBase) -> QRectF:
+        paper = paper_area.get_rect(self.expansion_direction)
+        return self.get_paper_to_work_transform(paper_area).mapRect(paper)
+
+    def get_paper_to_work_transform(self, paper_area: AreaBase):
+        work_area = self.working_area_rect
+        paper = paper_area.get_rect(self.expansion_direction)
+        return AreaBase.align_rect_to_rect_combined(paper, work_area, self.paper_corner,
+                                                    self.expansion_direction).translate(self.paper_offset.x,
+                                                                                        self.paper_offset.y)
+
+    @staticmethod
+    def from_scale_mul(v, unit):
+        if unit == "step/in":
+            return v * from_unit(1, "in")
+        elif unit == "step/mm":
+            return v * from_unit(1, "mm")
+        elif unit == "mm/step":
+            return to_unit(1, "mm") / v
+        elif unit == "in/step":
+            return to_unit(1, "in") / v
+        return v
+
+    @staticmethod
+    def to_scale_mul(v, unit):
+        if unit == "step/in":
+            return to_unit(v, "in")
+        elif unit == "step/mm":
+            return to_unit(v, "mm")
+        elif unit == "mm/step":
+            return to_unit(1, "mm") / v
+        elif unit == "in/step":
+            return to_unit(1, "in") / v
+        return v
 
 
 class Device(Model):
@@ -358,9 +523,6 @@ class Device(Model):
     manufacturer = Str().tag(config=True)
     model = Str().tag(config=True)
     custom = Bool().tag(config=True)
-
-    #: Internal model for drawing the preview on screen
-    area = Instance(AreaBase).tag(config=True)
 
     #: The declaration that defined this device
     declaration = Typed(extensions.DeviceDriver).tag(config=True)
@@ -391,10 +553,12 @@ class Device(Model):
 
     #: Position. Defaults to x,y,z. The protocol can
     #: handle this however necessary.
+    # device coordinate space, inkcut working units
     position = ContainerList(default=[0, 0, 0])
 
     #: Origin position. Defaults to [0, 0, 0]. The system will translate
     #: jobs to the origin so multiple can be run.
+    # device coordinate space, inkcut working units
     origin = ContainerList(default=[0, 0, 0])
 
     #: Device is currently busy processing a job
@@ -402,6 +566,17 @@ class Device(Model):
 
     #: Status
     status = Str()
+
+    def __init__(self, *args, **kwargs):
+        super(Model, self).__init__(*args, **kwargs)
+        (w, h) = kwargs.get('width'), kwargs.get('height')
+        if w:
+            self.config.area.size[0] = parse_unit(w)
+        if h:
+            h = parse_unit(h)
+        if not h:
+            h = 900000
+        self.config.area.size[1] = h
 
     def _default_connection(self):
         """ If no connection is set when the device is created,
@@ -425,29 +600,25 @@ class Device(Model):
     def _default_custom(self):
         return self.declaration.custom
 
-    def _default_area(self):
-        """ Create the area based on the size specified by the Device Driver
-
-        """
-        d = self.declaration
-        area = AreaBase()
-        w = parse_unit(d.width)
-        if d.length:
-            h = parse_unit(d.length)
-        else:
-            h = 900000
-        area.size = [w, h]
-        return area
-
     def _default_manufacturer(self):
         return self.declaration.manufacturer
 
     def _default_model(self):
         return self.declaration.model
 
-    @observe('declaration.width', 'declaration.length')
-    def _refresh_area(self, change):
-        self.area = self._default_area()
+    @property
+    def area_rect(self):
+        return self.config.working_area_rect
+
+    @property
+    def transform(self) -> QTransform:
+        return self.config.transform
+
+    def map_point(self, p: QPointF) -> QPointF:
+        return self.transform.map(p)
+
+    def map_vector(self, p: QPointF) -> QPointF:
+        return self.transform.map(p) - self.transform.map(QPointF(0, 0))
 
     @contextmanager
     def device_busy(self):
@@ -510,39 +681,6 @@ class Device(Model):
 
         return new_dev
 
-    def transform(self, path):
-        """ Apply the device output transform to the given path. This
-        is used by other plugins that may need to display or work with
-        tranformed output.
-
-        Parameters
-        ----------
-            path: QPainterPath
-                Path to transform
-
-        Returns
-        -------
-            path: QPainterPath
-
-        """
-        config = self.config
-
-        t = QtGui.QTransform()
-
-        #: Order matters!
-        if config.scale:
-            #: Do final output scaling
-            t.scale(*config.scale)
-
-        if config.rotation:
-            #: Do final output rotation
-            t.rotate(config.rotation)
-
-        #: TODO: Translate back to 0,0 so all coordinates are positive
-        path = t.map(path)
-
-        return path
-
     def init(self, job):
         """ Initialize the job. This should do any final path manipulation
         required by the device (or as specified by the config) and any filters
@@ -569,22 +707,18 @@ class Device(Model):
         units = config.speed_units.split("/")[0]
         job.info.speed = from_unit(config.speed, units)
 
-        scale = config.scale[:]
-        if config.mirror_x:
-            scale[0] *= -1 if config.mirror_x else 1
-        if config.mirror_y:
-            scale[1] *= -1 if config.mirror_y else 1
+        direction = self.config.expansion_direction
 
         # Get the internal QPainterPath "model" transformed to how this
         # device outputs
-        model = job.create(swap_xy=config.swap_xy, scale=scale)
+        model = job.create(direction)
 
-        if job.feed_to_end:
-            #: Move the job to the new origin
-            x, y, z = self.origin
-            model.translate(x, -y)
-
-        #: TODO: Apply filters here
+        tr = self.config.get_paper_to_work_transform(job.material)
+        #: Move the job to the new origin
+        x, y, z = self.origin
+        origin = self.config.inverse_transform.map(QPointF(x, y))
+        tr.translate(origin.x(), origin.y())
+        model = tr.map(model)
 
         #: Return the transformed model
         return model
@@ -619,7 +753,7 @@ class Device(Model):
         ----------
             position: List of coordinates to move to.
                 Desired position to move or move to (if using absolute
-                coordinates).
+                coordinates). Using inkcut coordinate system and scale.
             absolute: bool
                 Position is in absolute coordinates
         Returns
@@ -629,17 +763,18 @@ class Device(Model):
                 completion before continuing.
 
         """
+        p = QPointF(position[0], position[1])
+
         if absolute:
-            #: Clip everything to never go below zero in absolute mode
-            position = [max(0, p) for p in position]
+            p = self.map_point(p)
+            position = [p.x(), p.y(), position[2]]
             self.position = position
         else:
-            #: Convert to relative to absolute for the UI
-            p = self.position
-            p[0] += position[0]
-            p[1] += position[1]
-            self.position = p
+            p = self.map_vector(p)
+            position = [self.position[0] + p.x(), self.position[1] + p.y(), position[2]]
+            self.position = position
 
+        # TODO: use relative mode provided by protocol and self.map_vector
         result = self.connection.protocol.move(*position, absolute=absolute)
         if result:
             return result
@@ -872,7 +1007,7 @@ class Device(Model):
                             yield defer.maybeDeferred(self.disconnect)
 
             #: Set the origin
-            if job.feed_to_end and job.info.status == 'complete':
+            if job.info.status == 'complete' and job.after_job == Job.FEED_TO_END:
                 self.origin = self.position
 
             #: If the user didn't cancel, set the origin and
@@ -909,12 +1044,8 @@ class Device(Model):
         config = self.config
 
         # Previous point
-        _p = QtCore.QPointF(self.origin[0], self.origin[1])
 
-        # Do a final translation since Qt's y axis is reversed from svg's
-        # It should now be a bbox of (x=0, y=0, width, height)
-        # this creates a copy
-        model = QtGui.QTransform.fromScale(1, -1).map(model)
+        _p = self.config.inverse_transform.map(QtCore.QPointF(self.origin[0], self.origin[1]))
 
         # Determine if interpolation should be used
         skip_interpolation = (self.connection.always_spools or config.spooled
@@ -1249,57 +1380,27 @@ class DevicePlugin(Plugin):
     # -------------------------------------------------------------------------
     # Live progress API
     # -------------------------------------------------------------------------
-    def reset_preview(self):
-        """ Clear the preview """
-        self._reset_preview(None)
 
-    @observe('device', 'device.job')
+    @observe('device', 'device.job', 'device.alignment_corner', 'device.paper_corner', 'device.area')
     def _reset_preview(self, change):
-        """ Redraw the preview on the screen
-
-        """
-        view_items = []
-
-        #: Transform used by the view
+        # TODO: device plugin shouldn't need to know anything about preview plugin, preview plugin should subscribe to
+        # relevant events itself
         preview_plugin = self.workbench.get_plugin('inkcut.preview')
-        plot = preview_plugin.live_preview
-        t = preview_plugin.transform
+        preview_plugin.reset_live_preview(self.device, self.device.job, clear_paths=True)
 
-        #: Draw the device
-        device = self.device
-        job = device.job
-
-        r = QtGui.QTransform()
-        if device.config.swap_xy:
-            # Rotate area to match swapped axis
-            r.rotate(90)
-            r.scale(-1, 1)
-
-        if device and device.area:
-            area = device.area
-            view_items.append(
-                dict(path=device.transform(r.map(t.map(device.area.path))),
-                     pen=plot.pen_device,
-                     skip_autorange=True)
-            )
-
-        if job and job.material:
-            # Also observe any change to job.media and job.device
-            view_items.extend([
-                dict(path=device.transform(r.map(t.map(job.material.path))),
-                     pen=plot.pen_media,
-                     skip_autorange=True),
-                dict(path=device.transform(r.map(t.map(job.material.padding_path))),
-                     pen=plot.pen_media_padding, skip_autorange=True)
-            ])
-
-        #: Update the plot
-        preview_plugin.set_live_preview(*view_items)
+    @observe('device.origin')
+    def _reset_preview2(self, change):
+        # TODO: device plugin shouldn't need to know anything about preview plugin, preview plugin should subscribe to
+        # relevant events itself
+        preview_plugin = self.workbench.get_plugin('inkcut.preview')
+        preview_plugin.reset_live_preview(self.device, self.device.job, clear_paths=False)
 
     @observe('device.position')
     def _update_preview(self, change):
         """ Watch the position of the device as it changes. """
         if change['type'] == 'update' and self.device.job:
             x, y, z = change['value']
+            origin = self.device.config.inverse_transform.map(QPointF(x, y))
+            x, y = origin.x(), origin.y()
             preview_plugin = self.workbench.get_plugin('inkcut.preview')
-            preview_plugin.live_preview.update(change['value'])
+            preview_plugin.live_preview.update((x, y, z))

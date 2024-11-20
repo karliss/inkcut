@@ -11,13 +11,15 @@ from inkcut.device.extensions import DEVICE_PROTOCOL_POINT, DeviceProtocol
 
 
 def gpgl_factory(driver, declaration):
-    from .gpgl import GPGLProtocol
-    return GPGLProtocol(declaration=declaration)
+    from .gpgl import GPGLProtocol, GPGLConfig
+    return GPGLProtocol(declaration=declaration,
+                        config=GPGLConfig(**driver.get_protocol_config('gpgl')))
 
 
 def hpgl_factory(driver, declaration):
-    from .hpgl import HPGLProtocol
-    return HPGLProtocol(declaration=declaration)
+    from .hpgl import HPGLProtocol, HPGLConfig
+    return HPGLProtocol(declaration=declaration,
+                        config=HPGLConfig(**driver.get_protocol_config('hpgl')))
 
 
 def dmpl_factory(driver, declaration):
@@ -36,6 +38,11 @@ def hpgl_config_view():
     with enaml.imports():
         from .view import HPGLConfigView
     return HPGLConfigView
+
+def gpgl_config_view():
+    with enaml.imports():
+        from .view import GPGLConfigView
+    return GPGLConfigView
 
 
 def cammgl1_factory(driver, declaration):
@@ -74,6 +81,7 @@ enamldef ProtocolManifest(PluginManifest):
             id = 'gpgl'
             name = 'GPGL'
             factory = gpgl_factory
+            config_view = gpgl_config_view
 
         DeviceProtocol:
             id = 'hpgl'

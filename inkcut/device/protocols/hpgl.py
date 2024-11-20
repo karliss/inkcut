@@ -12,10 +12,11 @@ from inkcut.core.utils import log
 class HPGLConfig(Model):
     #: Pad option
     pad = Bool().tag(config=True)
+    ignore_protocol_scale = Bool(False).tag(config=True)
 
 
 class HPGLProtocol(DeviceProtocol):
-    scale = Float(1021/90.0)
+    DEFAULT_SCALE = Float(1016 / 90.0)
 
     #: Pad option
     config = Instance(HPGLConfig, ()).tag(config=True)
@@ -35,7 +36,8 @@ class HPGLProtocol(DeviceProtocol):
         negative values so absolute moves only works.
         
         """
-        x, y = int(x*self.scale), int(y*self.scale)
+        scale = self.protocol_scale
+        x, y = int(x * scale), int(y * scale)
         if absolute:
             self.write("%s%i,%i;" % ('PD' if z else 'PU', x, y))
         else:
@@ -43,14 +45,19 @@ class HPGLProtocol(DeviceProtocol):
 
     def set_force(self, f):
         self.write("FS%i; " % f)
-        
+
     def set_velocity(self, v):
         self.write("VS%i;" % v)
-        
+
     def set_pen(self, p):
         self.write("SP%i;" % p)
-        
+
     def finish(self):
         # Reinitialize
         self.write("IN;")
 
+    @property
+    def protocol_scale(self):
+        if self.config.ignore_protocol_scale:
+            return 1
+        return HPGLProtocol.DEFAULT_SCALE

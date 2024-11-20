@@ -9,6 +9,7 @@ Created on Dec 6, 2017
 
 @author: jrm
 """
+import math
 import os
 import json
 import enaml
@@ -20,6 +21,8 @@ from atom.api import (
 from enaml.workbench.plugin import Plugin as EnamlPlugin
 from enaml.widgets.api import Container
 from enaml.qt import QtCore, QtGui
+from enaml.qt.QtGui import QTransform
+from enaml.qt.QtCore import QRectF, QPointF
 from .utils import log, clip
 
 
@@ -123,12 +126,111 @@ class AreaBase(Model):
     def height(self):
         return self.size[1]
 
+    @staticmethod
+    def align_rect(from_rect: QRectF, to_rect: QRectF, corner: QPointF, offset: QPointF = None) -> QTransform:
+        if corner.x() > 0:
+            if corner.y() > 0:
+                p1 = from_rect.topLeft()
+                p2 = to_rect.topLeft()
+            else:
+                p1 = from_rect.bottomLeft()
+                p2 = to_rect.bottomLeft()
+        else:
+            if corner.y() > 0:
+                p1 = from_rect.topRight()
+                p2 = to_rect.topRight()
+            else:
+                p1 = from_rect.bottomRight()
+                p2 = to_rect.bottomRight()
+        d_vec = p2 - p1
+        if offset:
+            d_vec += offset
+        return QTransform.fromTranslate(d_vec.x(), d_vec.y())
+
+    @staticmethod
+    def rect_to_corner(from_rect: QRectF, corner: QPointF) -> QTransform:
+        if corner.x() > 0:
+            if corner.y() > 0:
+                p1 = from_rect.topLeft()
+            else:
+                p1 = from_rect.bottomLeft()
+        else:
+            if corner.y() > 0:
+                p1 = from_rect.topRight()
+            else:
+                p1 = from_rect.bottomRight()
+        p1 = -p1
+        return QTransform.fromTranslate(p1.x(), p1.y())
+
+    def get_rect(self, alignment: QPointF, offset: QPointF = None) -> QRectF:
+        r1 = QRectF(0, 0, self.size[0], self.size[1])
+        t = AreaBase.rect_to_corner(r1, alignment)
+        if offset:
+            t.translate(offset.x(), offset.y())
+        return t.mapRect(r1)
+
+    def get_content_rect(self, page_alignment: QPointF = None, offset: QPointF = None) -> QRectF:
+        if not page_alignment:
+            page_alignment = QPointF(1, 1)
+        return self.get_rect(page_alignment, offset).adjusted(self.padding_left, self.padding_top,
+                                                              -self.padding_right, -self.padding_bottom)
+
     @property
     def available_area(self):
-        x, y = self.padding_left, self.padding_bottom
-        w, h = (self.size[0]-(self.padding_right+self.padding_left),
-                self.size[1]-(self.padding_bottom+self.padding_top))
-        return QtCore.QRectF(x, y, w, h)
+        return self.get_content_rect()
+
+    @staticmethod
+    def align_axis(o1: float, o2: float, b1: float, b2: float, side: int) -> float:
+        if side == AreaBase.JOB_AXIS_ALIGN_MIN:
+            return b1 - o1
+        if side == AreaBase.JOB_AXIS_ALIGN_MAX:
+            return b2 - o2
+        return (b1 + b2) / 2 - (o1 + o2) / 2
+
+    JOB_AXIS_ALIGN_ZERO = -2
+    JOB_AXIS_ALIGN_MIN = -1
+    JOB_AXIS_ALIGN_MID = 0
+    JOB_AXIS_ALIGN_MAX = 1
+
+    @staticmethod
+    def combine_alignment(x, y):
+        return ((x - AreaBase.JOB_AXIS_ALIGN_ZERO) << 4) + (y - AreaBase.JOB_AXIS_ALIGN_ZERO)
+
+    @staticmethod
+    def split_alignment(v):
+        x = (v >> 4) + AreaBase.JOB_AXIS_ALIGN_ZERO
+        y = (v & 3) + AreaBase.JOB_AXIS_ALIGN_ZERO
+        return x, y
+
+    @staticmethod
+    def align_rect_to_rect_combined(from_rect: QRectF, to_rect: QRectF, alignment_value,
+                                    forward_direction=QPointF(1, 1)) -> QTransform:
+        align_x, align_y = AreaBase.split_alignment(alignment_value)
+        return AreaBase.align_rect_to_rect(from_rect, to_rect,
+                                           align_x, align_y, forward_direction)
+
+    @staticmethod
+    def align_rect_to_rect(from_rect: QRectF, to_rect: QRectF, align_x, align_y,
+                           forward_direction=QPointF(1, 1)) -> QTransform:
+        if align_x == AreaBase.JOB_AXIS_ALIGN_ZERO:
+            align_x = 1 if forward_direction.x() < 0 else -1
+        if align_y == AreaBase.JOB_AXIS_ALIGN_ZERO:
+            align_y = 1 if forward_direction.y() < 0 else -1
+
+        dx = AreaBase.align_axis(from_rect.left(), from_rect.right(), to_rect.left(), to_rect.right(), align_x)
+        dy = AreaBase.align_axis(from_rect.top(), from_rect.bottom(), to_rect.top(), to_rect.bottom(), align_y)
+        return QTransform.fromTranslate(dx, dy)
+
+
+class PointF(Model):
+    x = Float().tag(config=True)
+    y = Float().tag(config=True)
+
+    def to_qt(self) -> QPointF:
+        return QPointF(self.x, self.y)
+
+    def length(self):
+        return math.sqrt(self.x * self.x + self.y * self.y)
 
 
 class Plugin(EnamlPlugin):
@@ -166,6 +268,7 @@ class Plugin(EnamlPlugin):
         """ Unload any state observers when the plugin stops"""
         self._unbind_observers()
 
+    # TODO: get rid of this
     def run_command(self, protocol,  *args, **kwargs):
         """ Run a command without blocking using twisted's spawnProcess
 
