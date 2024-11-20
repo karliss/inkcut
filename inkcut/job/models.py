@@ -87,8 +87,10 @@ class JobInfo(Model):
 
     #: Device speed in px/s
     speed = Float(strict=False).tag(config=True)
-    #: Length in px
+    #: Length in inkcut units
     length = Float(strict=False).tag(config=True)
+    drawing_length = Float(strict=False).tag(config=True)
+    pen_lifts = Int().tag(config=True)
 
     #: Estimates based on length and speed
     duration = Instance(timedelta, ()).tag(config=True)

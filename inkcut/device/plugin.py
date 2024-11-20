@@ -881,12 +881,17 @@ class Device(Model):
                 #: Some versions of Qt seem to require a value in
                 #: toSubpathPolygons
                 m = QtGui.QTransform.fromScale(1, 1)
+                total_lines = 1
                 for path in model.toSubpathPolygons(m):
                     for i, p in enumerate(path):
                         whole_path.lineTo(p)
+                        total_lines += 1
                 total_length = whole_path.length()
                 total_moved = 0
                 log.debug("device | Path length: {}".format(total_length))
+                info.drawing_length = model.length()
+                info.pen_lifts = total_lines
+
 
                 #: So a estimate of the duration can be determined
                 info.length = total_length

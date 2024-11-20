@@ -76,6 +76,17 @@ enamldef JobApprovalDialog(Dialog): dialog:
                             round(to_unit(job.model.boundingRect().width(), job_plugin.units), 2),
                             job_plugin.units
                         )
+                Label:
+                    text = QApplication.translate("job", "Lines")
+                    tool_tip = QApplication.translate("job", "Number of individual lines or pen lifts.")
+                Label:
+                    text << "{}".format(job.info.pen_lifts)
+                Label:
+                    text = QApplication.translate("job", "Draw length")
+                    tool_tip = QApplication.translate("job", "Total length drawn or cut, not counting the travel moves")
+                Label:
+                    text << "{} {}".format(round(to_unit(job.info.drawing_length, job_plugin.units), 2),
+                                           job_plugin.units)
 #                Label:
 #                    text = QApplication.translate("job", "Cost")
 #                    tool_tip = QApplication.translate("job", "Estimated material cost")
