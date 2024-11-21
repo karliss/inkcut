@@ -163,8 +163,7 @@ class Job(Model):
         config=True, help="lock aspect ratio")
 
     mirror = ContainerList(Bool(), default=[False, False]).tag(config=True)
-    align_center = ContainerList(Bool(),
-                                 default=[False, False]).tag(config=True)
+    alignment = Int(AreaBase.JOB_AXIS_ALIGN2_ZERO).tag(config=True)
 
     # Shifting of original file
     auto_shift = Bool(True).tag(config=True, help="shift to start at origin")
@@ -381,7 +380,7 @@ class Job(Model):
             self._blocked = False
 
     @observe('path', 'scale', 'auto_scale', 'lock_scale', 'mirror',
-             'align_center', 'rotation', 'auto_rotate', 'copies', 'order',
+             'alignment', 'rotation', 'auto_rotate', 'copies', 'order',
              'copy_spacing', 'copy_weedline', 'copy_weedline_padding',
              'plot_weedline', 'plot_weedline_padding', 'after_job',
              'final_position', 'material', 'material.size', 'material.padding',
@@ -452,13 +451,8 @@ class Job(Model):
 
         page_area = self.material.get_content_rect(self.quadrant_direction)
 
-        # TODO: add UI option for aligning to any corner
-        t_align = AreaBase.align_rect_to_rect(bbox, page_area,
-                                              AreaBase.JOB_AXIS_ALIGN_MID if self.align_center[
-                                                  0] else AreaBase.JOB_AXIS_ALIGN_ZERO,
-                                              AreaBase.JOB_AXIS_ALIGN_MID if self.align_center[
-                                                  1] else AreaBase.JOB_AXIS_ALIGN_ZERO,
-                                              self.quadrant_direction)
+        t_align = AreaBase.align_rect_to_rect_combined(bbox, page_area,
+                                                       self.alignment, self.quadrant_direction)
 
         model: QPainterPath = t_align.map(model)
 

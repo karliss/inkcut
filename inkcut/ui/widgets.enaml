@@ -1,0 +1,84 @@
+"""
+Copyright (c) 2024, Kārlis Seņko.
+
+Distributed under the terms of the GPL v3 License.
+
+The full license is in the file LICENSE, distributed with this software.
+
+Created on Nov 21, 2024
+
+@author: karliss
+"""
+#import os
+#import textwrap
+from enaml.layout.api import hbox, vbox, spacer, align, grid
+#from enaml.core.api import Conditional
+from enaml.qt.QtWidgets import QApplication
+from enaml.widgets.api import (
+    Container, RadioButton,
+    Menu
+)
+from inkcut.core.models import AreaBase
+from inkcut.core.utils import to_unit, from_unit, load_icon
+
+enamldef AlignmentChoice9(Container): alignment_widget:
+    padding = 0
+    attr value = AreaBase.combine_alignment(AreaBase.JOB_AXIS_ALIGN_ZERO, AreaBase.JOB_AXIS_ALIGN_ZERO)
+    Container:
+        constraints = [
+            hbox(h_o, h_n, h_m, h_p, spacer)
+        ]
+        padding = 0
+        RadioButton: h_o:
+            text = QApplication.translate("widget", "Origin")
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.JOB_AXIS_ALIGN_ZERO,
+                AreaBase.split_alignment(alignment_widget.value)[1])
+            checked << AreaBase.split_alignment(alignment_widget.value)[0] == AreaBase.JOB_AXIS_ALIGN_ZERO
+        RadioButton: h_n:
+            icon = load_icon('shape_align_left')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.JOB_AXIS_ALIGN_MIN,
+                AreaBase.split_alignment(alignment_widget.value)[1])
+            checked << AreaBase.split_alignment(alignment_widget.value)[0] == AreaBase.JOB_AXIS_ALIGN_MIN
+        RadioButton: h_m:
+            icon = load_icon('shape_align_center')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.JOB_AXIS_ALIGN_MID,
+                AreaBase.split_alignment(alignment_widget.value)[1])
+            checked << AreaBase.split_alignment(alignment_widget.value)[0] == AreaBase.JOB_AXIS_ALIGN_MID
+        RadioButton: h_p:
+            icon = load_icon('shape_align_right')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.JOB_AXIS_ALIGN_MAX,
+                AreaBase.split_alignment(alignment_widget.value)[1])
+            checked << AreaBase.split_alignment(alignment_widget.value)[0] == AreaBase.JOB_AXIS_ALIGN_MAX
+    Container:
+        constraints = [
+            hbox(v_o, v_n, v_m, v_p, spacer)
+        ]
+        padding = 0
+        RadioButton: v_o:
+            text = QApplication.translate("widget", "Origin")
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.split_alignment(alignment_widget.value)[0],
+                AreaBase.JOB_AXIS_ALIGN_ZERO)
+            checked << AreaBase.split_alignment(alignment_widget.value)[1] == AreaBase.JOB_AXIS_ALIGN_ZERO
+        RadioButton: v_n:
+            icon = load_icon('shape_align_top')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.split_alignment(alignment_widget.value)[0],
+                AreaBase.JOB_AXIS_ALIGN_MIN)
+            checked << AreaBase.split_alignment(alignment_widget.value)[1] == AreaBase.JOB_AXIS_ALIGN_MIN
+        RadioButton: v_m:
+            icon = load_icon('shape_align_middle')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.split_alignment(alignment_widget.value)[0],
+                AreaBase.JOB_AXIS_ALIGN_MID)
+            checked << AreaBase.split_alignment(alignment_widget.value)[1] == AreaBase.JOB_AXIS_ALIGN_MID
+        RadioButton: v_p:
+            icon = load_icon('shape_align_bottom')
+            clicked :: alignment_widget.value = AreaBase.combine_alignment(
+                AreaBase.split_alignment(alignment_widget.value)[0],
+                AreaBase.JOB_AXIS_ALIGN_MAX)
+            checked << AreaBase.split_alignment(alignment_widget.value)[1] == AreaBase.JOB_AXIS_ALIGN_MAX

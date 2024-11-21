@@ -191,6 +191,7 @@ class AreaBase(Model):
     JOB_AXIS_ALIGN_MIN = -1
     JOB_AXIS_ALIGN_MID = 0
     JOB_AXIS_ALIGN_MAX = 1
+    JOB_AXIS_ALIGN2_ZERO = 0
 
     @staticmethod
     def combine_alignment(x, y):
