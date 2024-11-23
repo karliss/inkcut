@@ -23,7 +23,7 @@ from enaml.widgets.api import (
 from enamlx.widgets.api import DoubleSpinBox
 from inkcut.core.api import Model, DockItem
 from inkcut.core.models import AreaBase
-from inkcut.core.utils import to_unit, from_unit, load_icon
+from inkcut.core.utils import to_unit, from_unit, to_speed_unit, from_speed_unit, load_icon
 from inkcut.preview.plot_view import PlotView
 from inkcut.ui.widgets import AlignmentChoice9
 from .plugin import DeviceConfig
@@ -80,12 +80,22 @@ enamldef DeviceConfigView(Container):
             Form:
                 Label:
                     text = QApplication.translate("device", "Speed")
-                DoubleSpinBox:
-                    minimum = 0
-                    maximum = 999999999
-                    value := model.speed
-                    single_step = 4
-                    suffix << " {}".format(model.speed_units)
+                Container:
+                    padding = 0
+                    constraints = [
+                        hbox(speed, speed_unit)
+                    ]
+                    DoubleSpinBox: speed:
+                        minimum = 0
+                        maximum = 999999999
+                        value << to_speed_unit(model.speed, model.speed_display_units)
+                        value :: model.speed = from_speed_unit(change['value'], model.speed_display_units)
+                        single_step = 4
+                        suffix << " {}".format(model.speed_display_units)
+                    ObjectCombo: speed_unit:
+                        items = list(model.get_member('speed_display_units').items)
+                        selected := model.speed_display_units
+                        tool_tip = QApplication.translate("device", "Display units for speed, does not affect units used by protocol.")
                 Label:
                     text = ""
                 CheckBox:

@@ -7,7 +7,7 @@ Created on Dec 30, 2016
 import atom.api
 import twisted.internet.task
 
-from inkcut.core.utils import async_sleep, log
+from inkcut.core.utils import async_sleep, log, from_speed_unit, to_speed_unit
 from inkcut.device.plugin import DeviceProtocol, Model
 from inkcut.core.api import from_unit, to_unit
 from twisted.internet import defer
@@ -195,8 +195,17 @@ class GCodeProtocol(DeviceProtocol):
     def set_force(self, f):
         raise NotImplementedError
 
+    @defer.inlineCallbacks
     def set_velocity(self, v):
-        raise NotImplementedError
+        # Marlin docs -> unit/min
+        # FluidNC -> unit/min (unless inverse time mode is active)
+        # reprap wiki unit/min
+        # LinuxCNC -> unit/min (unless inverse time mode active)
+        if self.config.unit_mode == GCodeConfig.UNIT_METRIC:
+            v = to_speed_unit(v, "mm/min")
+        else:
+            v = to_speed_unit(v, "in/min")
+        yield self.write("G1 F{:.3f}".format(v))
 
     def set_pen(self, p):
         raise NotImplementedError

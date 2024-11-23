@@ -167,7 +167,7 @@ class DeviceProtocol(Model):
         Parameters
         ----------
         v: int
-            The force setting value to send to the device
+            velocity in inkcut units/s
 
         """
 
@@ -280,12 +280,12 @@ class DeviceConfig(Model):
     #: Time between each path command
     #: Time to wait between each step so we don't get
     #: way ahead of the cutter and fill up it's buffer
-    step_time = Float(strict=False).tag(config=True)
+    step_time = Float(strict=False).tag(config=True) # ms
     custom_rate = Float(-1, strict=False).tag(config=True)
 
     #: Distance between each command in user units
     #: this is effectively the resolution the software supplies
-    step_size = Float(parse_unit('1mm'), strict=False).tag(config=True)
+    step_size = Float(from_unit(1, 'mm'), strict=False).tag(config=True)
 
     #: Interpolate paths breaking them into small sections that
     #: can be sent. This allows pausing mid plot as many devices do not have
@@ -347,9 +347,8 @@ class DeviceConfig(Model):
     #: Defines prescaling before conversion to a polygon
     quality_factor = Float(1, strict=False).tag(config=True)
 
-    #: In cm/s
-    speed = Float(4, strict=False).tag(config=True)
-    speed_units = Enum('in/s', 'cm/s').tag(config=True)
+    speed = Float(4, strict=False).tag(config=True) # in inkcut units/s
+    speed_display_units = Enum('in/s', 'cm/s', 'mm/s', 'mm/min').tag(config=True)
     speed_enabled = Bool().tag(config=True)
 
     #: Force in g
@@ -381,10 +380,7 @@ class DeviceConfig(Model):
 
 
         """
-        #: Convert speed to px/s then to mm/s
-        units = self.speed_units.split("/")[0]
-        speed = parse_unit('%s%s' % (self.speed, units))
-        speed = to_unit(speed, 'mm')
+        speed = self.speed
         if speed == 0:
             return 0
 
@@ -394,7 +390,7 @@ class DeviceConfig(Model):
     def _default_area(self):
         return AreaBase()
 
-    @observe('speed', 'speed_units', 'step_size')
+    @observe('speed', 'step_size')
     def _update_step_time(self, change):
         if change['type'] == 'update':
             self.step_time = self._default_step_time()
@@ -703,9 +699,7 @@ class Device(Model):
         log.debug("device | init {}".format(job))
         config = self.config
 
-        # Set the speed of this device for tracking purposes
-        units = config.speed_units.split("/")[0]
-        job.info.speed = from_unit(config.speed, units)
+        job.info.speed = config.speed
 
         direction = self.config.expansion_direction
 
@@ -865,9 +859,7 @@ class Device(Model):
                     else:
                         rate = 0 # Undefined
                 else:
-                    rate = from_unit(
-                        config.speed,  # in/s or cm/s
-                        config.speed_units.split("/")[0])/1000.0
+                    rate = config.speed/1000.0
 
                 # Device model is updated in real time
                 model = yield defer.maybeDeferred(self.init, job)
