@@ -6,7 +6,7 @@ Created on Jul 25, 2015
 """
 from atom.api import Instance, Float, Bool, Int
 from inkcut.device.plugin import DeviceProtocol, Model
-from inkcut.core.utils import log
+from inkcut.core.utils import log, to_speed_unit
 
 
 class HPGLConfig(Model):
@@ -47,7 +47,11 @@ class HPGLProtocol(DeviceProtocol):
         self.write("FS%i; " % f)
 
     def set_velocity(self, v):
-        self.write("VS%i;" % v)
+        # HP DraftPro programmers reference says that speed units are cm/s
+        # HP 7585B service manual -> "1 to 6cm/s (0.4 to 24in/s) in 1cm increments"
+        # Siemens C1613 PROGRAMMIERHANDBUCH cm/sek
+        # Roland DPX-3300 operation manual cm/s
+        self.write("VS{}".format(round(to_speed_unit(v, 'cm/s'))))
 
     def set_pen(self, p):
         self.write("SP%i;" % p)

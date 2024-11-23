@@ -11,6 +11,7 @@ Thanks to Lex Wernars
 from inkcut.device.plugin import DeviceProtocol
 from atom.api import Instance, Float, Bool, Int, Enum
 from inkcut.device.plugin import DeviceProtocol, Model
+from inkcut.core.utils import to_unit
 
 
 class GPGLConfig(Model):
@@ -39,7 +40,11 @@ class GPGLProtocol(DeviceProtocol):
             self.write("%s%i,%i" % ('E' if z else 'O', x, y))
 
     def set_velocity(self, v):
-        self.write('!%i' % v)
+        # MP4000 series command set reference manual -> 10mm/s = cm/s
+        # note that speed can be set in two different modes 1-10  uses an abstract scale from min to max speed
+        # 100...(max_speed+100) specifies spped offset by 100 in cm/s
+        speed = max(1, round(to_unit(v, "cm")))
+        self.write('!{:i}'.format(speed + 100))
 
     def set_force(self, f):
         self.write("FX%i,1" % f)

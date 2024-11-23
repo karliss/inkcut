@@ -97,6 +97,22 @@ def to_unit(val, unit="px"):
     return QtSvgDoc.convertToUnit(val, unit)
 
 
+def from_speed_unit(val, unit):
+    dist_unit, time_unit = unit.split('/')
+    speed = from_unit(val, dist_unit)
+    if time_unit == 'min':
+        speed /= 60
+    return speed
+
+
+def to_speed_unit(val, unit):
+    dist_unit, time_unit = unit.split('/')
+    speed = to_unit(val, dist_unit)
+    if time_unit == 'min':
+        speed *= 60
+    return speed
+
+
 def parse_unit(val):
     """Parse a string into pixels"""
     return QtSvgDoc.parseUnit(val)
