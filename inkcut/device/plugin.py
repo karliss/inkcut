@@ -1373,31 +1373,3 @@ class DevicePlugin(Plugin):
             for t in extension.get_children(extensions.DeviceFilter):
                 filters.append(t)
         self.filters = filters
-
-    # -------------------------------------------------------------------------
-    # Live progress API
-    # -------------------------------------------------------------------------
-
-    @observe('device', 'device.job', 'device.alignment_corner', 'device.paper_corner', 'device.area')
-    def _reset_preview(self, change):
-        # TODO: device plugin shouldn't need to know anything about preview plugin, preview plugin should subscribe to
-        # relevant events itself
-        preview_plugin = self.workbench.get_plugin('inkcut.preview')
-        preview_plugin.reset_live_preview(self.device, self.device.job, clear_paths=True)
-
-    @observe('device.origin')
-    def _reset_preview2(self, change):
-        # TODO: device plugin shouldn't need to know anything about preview plugin, preview plugin should subscribe to
-        # relevant events itself
-        preview_plugin = self.workbench.get_plugin('inkcut.preview')
-        preview_plugin.reset_live_preview(self.device, self.device.job, clear_paths=False)
-
-    @observe('device.position')
-    def _update_preview(self, change):
-        """ Watch the position of the device as it changes. """
-        if change['type'] == 'update' and self.device.job:
-            x, y, z = change['value']
-            origin = self.device.config.inverse_transform.map(QPointF(x, y))
-            x, y = origin.x(), origin.y()
-            preview_plugin = self.workbench.get_plugin('inkcut.preview')
-            preview_plugin.live_preview.update((x, y, z))

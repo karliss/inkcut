@@ -290,8 +290,7 @@ class Job(Model):
             doc = OrderingHandler().order(self, doc)
 
         return doc
-
-    def _default_content_direction(self):
+    def _default_quadrant_direction(self):
         return QPointF(1, 1)
 
     @observe('path', 'order', 'filters')

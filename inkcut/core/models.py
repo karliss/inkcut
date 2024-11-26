@@ -304,6 +304,8 @@ class Plugin(EnamlPlugin):
         """ Try to load the plugin state """
         #: Restore
         try:
+            log.debug("Restoring plugin {} state restored from: {}".format(
+                self.manifest.id, self._state_file))
             with enaml.imports():
                 with open(self._state_file, 'r') as f:
                     state = pickle.loads(f.read())
@@ -325,7 +327,7 @@ class Plugin(EnamlPlugin):
         """ Try to save the plugin state """
         if change['type'] in ['update', 'container', 'request']:
             try:
-                log.info("Saving state due to change: {}".format(change))
+                log.info("Saving state {} due to change: {}".format(self.manifest.id, change))
 
                 #: Dump first so any failure to encode doesn't wipe out the
                 #: previous state

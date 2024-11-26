@@ -12,6 +12,7 @@ Created on Jul 12, 2015
 import os
 import sys
 import enaml
+import atom
 from atom.api import Instance, Enum, List, Str, Int, Float, observe
 from inkcut.core.api import Plugin, unit_conversions, log
 from enaml.qt.QtGui import QPainterPath, QTransform
@@ -52,6 +53,8 @@ class JobPlugin(Plugin):
 
     #: Timeout for optimizing paths
     optimizer_timeout = Float(10, strict=False).tag(config=True)
+
+    content_changed = atom.api.Event()
 
     def _default_job(self):
         return Job(material=self.material)
@@ -184,82 +187,9 @@ class JobPlugin(Plugin):
 
     @observe("job", "job.model", "job.material", "material.size", "material.padding")
     def _refresh_preview(self, change):
-        """Redraw the main preview in central area of program"""
-        log.info(change)
-        view_items = []
-
-        #: Transform used by the view
-        preview_plugin = self.workbench.get_plugin("inkcut.preview")
-        job = self.job
-        plot = preview_plugin.preview
-        t = preview_plugin.transform
-
-        #: Draw the device
-        plugin = self.workbench.get_plugin("inkcut.device")
-        device = plugin.device
-        device_config: DeviceConfig = device.config
-        job.set_direction(device_config.expansion_direction)
-
-        #: Apply the final output transforms from the device
-        page_transform = QTransform()
-        if job.material and device and device.config.area:
-            page_transform = device_config.get_paper_to_work_transform(job.material)
-
-        def transform(p):
-            return page_transform.map(p)
-
-        if device and device.config.area:
-            view_items.append(
-                dict(
-                    path=utils.rect_to_path(device.area_rect),
-                    pen=plot.pen_device,
-                    skip_autorange=True,
-                )  # (False, [area.size[0], 0]))
-            )
-
-        #: The model is only set when a document is open and has no errors
-        if job.model:
-            view_items.extend(
-                [
-                    dict(path=transform(job.move_path), pen=plot.pen_up),
-                    dict(path=transform(job.cut_path), pen=plot.pen_down),
-                ]
-            )
-
-            #: TODO: This
-            # if True:
-            #    filters = device.filters
-            #    modelt = job.cut_path
-            #    for f in filters:
-            #        log.debug(" filter | Running {} on model".format(f))
-            #        modelt = f.apply_to_model(modelt, job=device)
-            #    view_items.append(dict(
-            #        path=modelt, pen=plot.pen_offset))
-
-        if job.material:
-            # Also observe any change to job.media and job.device
-
-            page_rect = job.material.get_rect(job.quadrant_direction)
-            padded_page = job.material.get_content_rect(job.quadrant_direction)
-            view_items.extend(
-                [
-                    dict(
-                        path=transform(utils.rect_to_path(page_rect)),
-                        pen=plot.pen_media,
-                        skip_autorange=([0, job.size[0]], [0, job.size[1]]),
-                    ),
-                    dict(
-                        path=transform(utils.rect_to_path(padded_page)),
-                        pen=plot.pen_media_padding,
-                        skip_autorange=True,
-                    ),
-                ]
-            )
-
-        #: Update the plot
-        preview_plugin.set_preview(*view_items)
-
+        self.content_changed = 1
         #: Save config
+        # TODO: do not instantly save
         self.save()
 
     # -------------------------------------------------------------------------
