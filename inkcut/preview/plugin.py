@@ -120,13 +120,16 @@ class PreviewPlugin(Plugin):
 
     def start(self):
         """ Start listening for command updates """
-        super(Plugin, self).start()
+        super().start()
         self._bind_extra_observers()
         log.debug("starting preview plugin")
+        self.device = self.device_plugin.device
+        if self.device:
+            self._refresh_preview(None)
 
     def stop(self):
         self._unbind_extra_observers()
-        super(Plugin, self).stop()
+        super().stop()
 
     def _bind_extra_observers(self):
         workbench = self.workbench
@@ -134,8 +137,6 @@ class PreviewPlugin(Plugin):
         job_plugin.observe('content_changed', self._refresh_preview)
         device_plugin = self.device_plugin =  workbench.get_plugin('inkcut.device')
         device_plugin.observe('device', self._update_device)
-        log.debug(f"setting initial device {device_plugin.device}")
-        self.device = device_plugin.device
 
     def _unbind_extra_observers(self):
         self.job_plugin.unobserve('content_changed', self._refresh_preview)
