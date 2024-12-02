@@ -129,7 +129,6 @@ class PreviewPlugin(Plugin):
         """ Start listening for command updates """
         super().start()
         self._bind_extra_observers()
-        log.debug("starting preview plugin")
         self.device = self.device_plugin.device
         if self.device:
             self._refresh_preview(None)
