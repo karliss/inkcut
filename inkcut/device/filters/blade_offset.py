@@ -51,6 +51,10 @@ class BladeOffsetFilter(DeviceFilter):
     #: Change config
     config = Instance(BladeOffsetConfig, ()).tag(config=True)
 
+    @property
+    def stage(self):
+        return DeviceFilter.FILTER_STAGE_PATH_COMBINED
+
     def apply_to_model(self, model, job):
         """Apply the filter to the path model.
 

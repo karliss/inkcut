@@ -237,6 +237,13 @@ class DeviceFilter(Model):
     #: The protocol specific config
     config = Instance(Model, ()).tag(config=True)
 
+    FILTER_STAGE_PATH_COMBINED = 1
+    FILTER_STAGE_POLYLINE = 2
+
+    @property
+    def stages(self) -> int:
+        return 0
+
     def apply_to_model(self, model, job):
         """ Apply the filter to the model
 
@@ -657,7 +664,6 @@ class Device(Model):
         new_dev.name = self.name
         new_dev.manufacturer = self.manufacturer
         new_dev.model = self.model
-        new_dev.area = self.area.clone()
         new_dev.custom = self.custom
         if driver.factory:
             connection_decl = self.connection.declaration
@@ -701,11 +707,9 @@ class Device(Model):
 
         job.info.speed = config.speed
 
-        direction = self.config.expansion_direction
-
         # Get the internal QPainterPath "model" transformed to how this
         # device outputs
-        model = job.create(direction)
+        model = job.create_transform_filtered(self)
 
         tr = self.config.get_paper_to_work_transform(job.material)
         #: Move the job to the new origin
@@ -1054,11 +1058,6 @@ class Device(Model):
         if not skip_interpolation and step_size <= 0:
             raise ValueError("Cannot have a step size <= 0!")
         try:
-            # Apply device filters
-            for f in self.filters:
-                log.debug(" filter | Running {} on model".format(f))
-                model = f.apply_to_model(model, job=self)
-
             # Since Qt's toSubpathPolygons converts curves without accepting
             # a parameter to set the minimum distance between points on the
             # curve, we need to prescale by a "quality factor" before
@@ -1075,11 +1074,6 @@ class Device(Model):
                 m_inv = QtGui.QTransform.fromScale(
                     1/config.quality_factor, 1/config.quality_factor)
                 polypath = list(map(m_inv.map, polypath))
-
-            # Apply device filters to polypath
-            for f in self.filters:
-                log.debug(" filter | Running {} on polypath".format(f))
-                polypath = f.apply_to_polypath(polypath)
 
             for path in polypath:
 
@@ -1373,31 +1367,3 @@ class DevicePlugin(Plugin):
             for t in extension.get_children(extensions.DeviceFilter):
                 filters.append(t)
         self.filters = filters
-
-    # -------------------------------------------------------------------------
-    # Live progress API
-    # -------------------------------------------------------------------------
-
-    @observe('device', 'device.job', 'device.alignment_corner', 'device.paper_corner', 'device.area')
-    def _reset_preview(self, change):
-        # TODO: device plugin shouldn't need to know anything about preview plugin, preview plugin should subscribe to
-        # relevant events itself
-        preview_plugin = self.workbench.get_plugin('inkcut.preview')
-        preview_plugin.reset_live_preview(self.device, self.device.job, clear_paths=True)
-
-    @observe('device.origin')
-    def _reset_preview2(self, change):
-        # TODO: device plugin shouldn't need to know anything about preview plugin, preview plugin should subscribe to
-        # relevant events itself
-        preview_plugin = self.workbench.get_plugin('inkcut.preview')
-        preview_plugin.reset_live_preview(self.device, self.device.job, clear_paths=False)
-
-    @observe('device.position')
-    def _update_preview(self, change):
-        """ Watch the position of the device as it changes. """
-        if change['type'] == 'update' and self.device.job:
-            x, y, z = change['value']
-            origin = self.device.config.inverse_transform.map(QPointF(x, y))
-            x, y = origin.x(), origin.y()
-            preview_plugin = self.workbench.get_plugin('inkcut.preview')
-            preview_plugin.live_preview.update((x, y, z))

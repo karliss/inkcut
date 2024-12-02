@@ -29,7 +29,11 @@ class OvercutConfig(Model):
 class OvercutFilter(DeviceFilter):
     #: Change config
     config = Instance(OvercutConfig, ()).tag(config=True)
-    
+
+    @property
+    def stage(self):
+        return DeviceFilter.FILTER_STAGE_POLYLINE
+
     def apply_to_polypath(self, polypath):
         """ Apply the filter to the polypath. It's much easier doing this
         after conversion to polypaths.
@@ -72,7 +76,7 @@ class OvercutFilter(DeviceFilter):
             path.lineTo(p)
             
             # Check if that point is past the distance we need to go
-            if path.length() > overcut: 
+            if path.length() > overcut:
                 t = path.percentAtLength(overcut)
                 poly.append(path.pointAtPercent(t))
                 return  # Done!

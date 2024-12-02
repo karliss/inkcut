@@ -269,6 +269,21 @@ def rect_to_path(rect):
     return path
 
 
+def make_move_path(model, initial_position: QPointF = None):
+    """ Returns the path of movements between drawn lines
+    """
+    path = QPainterPath()
+    if initial_position:
+        path.moveTo(initial_position.x(), initial_position.y())
+    for i in range(model.elementCount()):
+        e = model.elementAt(i)
+        if e.isMoveTo():
+            path.lineTo(e.x, e.y)
+        else:
+            path.moveTo(e.x, e.y)
+    return path
+
+
 def find_subclasses(cls):
     """Finds all known (imported) subclasses of the given class"""
     cmds = []

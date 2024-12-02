@@ -29,6 +29,10 @@ class RepeatConfig(Model):
 class RepeatFilter(DeviceFilter):
     config = Instance(RepeatConfig, ()).tag(config=True)
 
+    @property
+    def stage(self):
+        return DeviceFilter.FILTER_STAGE_PATH_COMBINED
+
     def apply_to_model(self, model, job):
         if self.config.steps <= 1:
             return model
