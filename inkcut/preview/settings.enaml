@@ -36,5 +36,15 @@ enamldef PreviewSettingsPage(Container):
                 text = QApplication.translate("settings", "Alpha")
             SpinBox: ga:
                 value := model.grid_alpha
-
-
+        Label:
+            text = QApplication.translate("settings", "Display")
+        Container:
+            CheckBox:
+                text = QApplication.translate("settings", "Moves")
+                checked := model.show_moves
+            CheckBox:
+                text = QApplication.translate("settings", "Input drawing")
+                checked := model.show_drawing
+            CheckBox:
+                text = QApplication.translate("settings", "Processed path")
+                checked := model.show_processed_path

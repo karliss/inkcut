@@ -17,6 +17,8 @@ from enaml.application import timed_call
 from enaml.qt import QtCore, QtGui
 from enaml.qt.QtCore import QPointF
 from enaml.qt.QtGui import QPainterPath, QTransform
+
+import inkcut.core.utils
 from inkcut.core.api import Plugin, Model, unit_conversions, log
 from .plot_view import PainterPathPlotItem
 from ..core import utils
@@ -39,6 +41,7 @@ class PreviewModel(Model):
     pen_up = Instance(QPen)
     pen_offset = Instance(QPen)
     pen_down = Instance(QPen)
+    pen_tool_path = Instance(QPen)
     pen_device = Instance(QPen)
 
     need_redraw = Int(default=0)
@@ -55,8 +58,8 @@ class PreviewModel(Model):
     def _default_pen_up(self):
         return pg.mkPen(hsv=(0.53, 1, 0.5, 0.5))
 
-    def _default_pen_offset(self):
-        return pg.mkPen(hsv=(0.43, 1, 0.5, 0.5))
+    def _default_pen_tool_path(self):
+        return pg.mkPen(hsv=(0.064, 0.905, 0.96, 1), style=QtCore.Qt.DashLine)
 
     def _default_pen_down(self):
         return pg.mkPen((128, 128, 128))
@@ -114,7 +117,11 @@ class PreviewPlugin(Plugin):
     show_grid_x = Bool().tag(config=True)
     show_grid_y = Bool().tag(config=True)
     grid_alpha = Range(value=30, low=1, high=100).tag(config=True)
-    job_plugin: JobPlugin
+    show_moves = Bool(default=True).tag(config=True)
+    show_drawing = Bool(default=True).tag(config=True)
+    show_processed_path = Bool().tag(config=True)
+
+    job_plugin: Optional[JobPlugin]
     device_plugin: DevicePlugin
     device = Instance(Device, optional=True)
 
@@ -147,6 +154,9 @@ class PreviewPlugin(Plugin):
 
         """
         return QtGui.QTransform.fromScale(1, -1)
+
+    def _default_job_plugin(self):
+        self.job_plugin = self.workbench.get_plugin('inkcut.job')
 
     def _update_device(self, change):
         log.debug('update device')
@@ -239,10 +249,14 @@ class PreviewPlugin(Plugin):
         #: Update the plot
         self.set_live_preview(*view_items, clear_paths=clear_paths)
 
+    @observe('show_moves', 'show_drawing', 'show_processed_path')
     def _refresh_preview(self, change):
         """Redraw the main preview in central area of program"""
         log.info(change)
         view_items = []
+
+        if not self.job_plugin:
+            return
 
         #: Transform used by the view
         job = self.job_plugin.job
@@ -272,25 +286,6 @@ class PreviewPlugin(Plugin):
                 )  # (False, [area.size[0], 0]))
             )
 
-        #: The model is only set when a document is open and has no errors
-        if job.model:
-            view_items.extend(
-                [
-                    dict(path=transform(job.move_path), pen=plot.pen_up),
-                    dict(path=transform(job.cut_path), pen=plot.pen_down),
-                ]
-            )
-
-            #: TODO: This
-            # if True:
-            #    filters = device.filters
-            #    modelt = job.cut_path
-            #    for f in filters:
-            #        log.debug(" filter | Running {} on model".format(f))
-            #        modelt = f.apply_to_model(modelt, job=device)
-            #    view_items.append(dict(
-            #        path=modelt, pen=plot.pen_offset))
-
         if job.material:
             # Also observe any change to job.media and job.device
 
@@ -310,5 +305,20 @@ class PreviewPlugin(Plugin):
                     ),
                 ]
             )
+
+        #: The model is only set when a document is open and has no errors
+        if job.model:
+            model = job.model
+
+            if self.show_drawing:
+                view_items.append(dict(path=transform(job.model), pen=plot.pen_down))
+
+            if self.show_processed_path:
+                model = job.create_transform_filtered(device)
+                view_items.append(dict(path=transform(model), pen=plot.pen_tool_path))
+
+            if self.show_moves:
+                view_items.append(dict(path=transform(inkcut.core.utils.make_move_path(model)), pen=plot.pen_up))
+
 
         self.set_preview(*view_items)

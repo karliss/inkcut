@@ -59,6 +59,10 @@ class MinLineFilter(DeviceFilter):
     #: Change config
     config = Instance(MinLineConfig, ()).tag(config=True)
 
+    @property
+    def stage(self):
+        return DeviceFilter.FILTER_STAGE_PATH_COMBINED
+
     def apply_to_model(self, model, job):
         if self.config.min_jump > 0:
             model = self.apply_min_jump(model)

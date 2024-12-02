@@ -22,6 +22,8 @@ from contextlib import contextmanager
 from enaml.qt.QtGui import QPainterPath, QTransform
 from enaml.qt.QtCore import QPointF, QRectF
 from enaml.colors import ColorMember
+
+import inkcut.core.utils
 from inkcut.core.api import Model, AreaBase
 from inkcut.core.svg import QtSvgDoc
 from inkcut.core.utils import split_painter_path, log
@@ -29,7 +31,6 @@ from inkcut.core.utils import split_painter_path, log
 
 from . import filters
 from . import ordering
-
 
 class Material(AreaBase):
     """ Model representing the plot media
@@ -476,6 +477,58 @@ class Job(Model):
 
         return model
 
+    def create_transform_filtered(self, device):
+        config = device.config
+        model = self.create(config.expansion_direction)
+
+        from inkcut.device.plugin import DeviceFilter
+
+        # Apply device filters
+        has_polyline_filter = False
+        for f in device.filters:
+            log.debug(" filter | Running {} on model".format(f))
+            if f.stage & DeviceFilter.FILTER_STAGE_POLYLINE:
+                has_polyline_filter = True
+            if f.stage & DeviceFilter.FILTER_STAGE_PATH_COMBINED:
+                model = f.apply_to_model(model, job=device)
+
+        # Only apply polyline transformation if necessary. So that original curves can be preserved
+        # and sent to device directly when supported.
+        if has_polyline_filter:
+            # Since Qt's toSubpathPolygons converts curves without accepting
+            # a parameter to set the minimum distance between points on the
+            # curve, we need to prescale by a "quality factor" before
+            # converting then undo the scaling to effectively adjust the
+            # number of points on a curve.
+            quality_factor = config.quality_factor
+            m = QTransform.fromScale(
+                quality_factor, quality_factor)
+            # Some versions of Qt seem to require a value in toSubpathPolygons
+            polypath = model.toSubpathPolygons(m)
+
+            if config.quality_factor != 1:
+                # Undo the prescaling, if the quality_factor > 1 the curve
+                # quality will be improved.
+                m_inv = QTransform.fromScale(
+                    1 / quality_factor, 1 / quality_factor)
+                polypath = list(map(m_inv.map, polypath))
+
+            # Apply device filters to polypath
+            for f in device.filters:
+                log.debug(" filter | Running {} on polypath".format(f))
+                if f.stage & DeviceFilter.FILTER_STAGE_POLYLINE:
+                    polypath = f.apply_to_polypath(polypath)
+
+            end_point = model.currentPosition()
+            model = QPainterPath()
+            for path in polypath:
+                model.addPolygon(path)
+
+            model.moveTo(end_point)
+
+        return model
+
+
     def _check_bounds(self, plot, area):
         """ Checks that the width and height of plot are less than the width
         and height of area
@@ -557,15 +610,7 @@ class Job(Model):
         """ Returns the path the head moves when not cutting
 
         """
-        # Compute the negative
-        path = QPainterPath()
-        for i in range(self.model.elementCount()):
-            e = self.model.elementAt(i)
-            if e.isMoveTo():
-                path.lineTo(e.x, e.y)
-            else:
-                path.moveTo(e.x, e.y)
-        return path
+        return inkcut.core.utils.make_move_path(self.model)
 
     @property
     def cut_path(self):
@@ -573,30 +618,6 @@ class Job(Model):
 
         """
         return self.model
-
-    #     def get_offset_path(self,device):
-    #         """ Returns path where it is cutting """
-    #         path = QPainterPath()
-    #         _p = QPointF(0,0) # previous point
-    #         step = 0.1
-    #         for subpath in QtSvgDoc.toSubpathList(self.model):#.toSubpathPolygons():
-    #             e = subpath.elementAt(0)
-    #             path.moveTo(QPointF(e.x,e.y))
-    #             length = subpath.length()
-    #             distance = 0
-    #             while distance<=length:
-    #                 t = subpath.percentAtLength(distance)
-    #                 p = subpath.pointAtPercent(t)
-    #                 a = subpath.angleAtPercent(t)+90
-    #                 #path.moveTo(p)#QPointF(x,y))
-    #                 # TOOD: Do i need numpy here???
-    #                 x = p.x()+np.multiply(self.device.blade_offset,np.sin(np.deg2rad(a)))
-    #                 y = p.y()+np.multiply(self.device.blade_offset,np.cos(np.deg2rad(a)))
-    #                 path.lineTo(QPointF(x,y))
-    #                 distance+=step
-    #             #_p = p # update last
-    #
-    #         return path
 
     def add_stack(self):
         """ Add a complete stack or fill the row
