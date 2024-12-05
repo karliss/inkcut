@@ -11,14 +11,14 @@ from inkcut.device.extensions import DeviceTransport, DEVICE_TRANSPORT_POINT
 
 def transport_factory(driver, declaration, protocol):
     from .plugin import QtSerialTransport, QtSerialConfig
-    config = QtSerialConfig(**driver.get_connection_config('qtserial'))
+    config = QtSerialConfig(**driver.get_connection_config('qtserial', 'serial'))
     return QtSerialTransport(declaration=declaration, protocol=protocol, config=config)
 
 
 def config_view_factory():
     with enaml.imports():
-        from .settings import SerialPortSettingsView
-    return SerialPortSettingsView
+        from .settings import QtSerialPortSettingsView
+    return QtSerialPortSettingsView
 
 
 def plugin_factory():

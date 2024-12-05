@@ -19,10 +19,12 @@ from enaml.widgets.api import Container, Form, Label, ObjectCombo, SpinBox, Chec
 
 enamldef SerialPortSettingsView(Container):
     attr model
+    attr exclusive = False
     padding = 0
 
+    alias dsrdtr
     func selected_port(port, ports):
-        matches = [p for p in ports if p.device == port]
+        matches = [p for p in ports if p.device_path == port]
         return matches[0] if matches else None
 
     Form:
@@ -40,7 +42,7 @@ enamldef SerialPortSettingsView(Container):
                 selected ::
                     port = change['value']
                     if port:
-                        model.port = port.device
+                        model.port = port.device_path
                 tool_tip = textwrap.dedent("""
                 List of serial ports detected by the system. If nothing is here you
                 must install the device driver for your machine.
@@ -81,12 +83,24 @@ enamldef SerialPortSettingsView(Container):
             CheckBox: rtscts:
                 text = QApplication.translate("serialport", "RTS/CTS")
                 checked := model.rtscts
+                checked ::
+                    if change['value'] and exclusive:
+                        model.xonxoff = False
+                        model.dsrdtr = False
                 tool_tip = QApplication.translate("serialport", "Enable hardware (RTS/CTS) flow control")
             CheckBox: dsrdtr:
                 text = QApplication.translate("serialport", "DSR/DTR")
                 checked := model.dsrdtr
+                checked ::
+                    if change['value'] and exclusive:
+                        model.xonxoff = False
+                        model.rtscts = False
                 tool_tip = QApplication.translate("serialport", "Enable hardware (DSR/DTR) flow control")
             CheckBox: xonxoff:
                 text = QApplication.translate("serialport", "XON/XOFF")
                 checked := model.xonxoff
+                checked ::
+                    if change['value'] and exclusive:
+                        model.dsrdtr = False
+                        model.rtscts = False
                 tool_tip = QApplication.translate("serialport", "Enable software flow control")

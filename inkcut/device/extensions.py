@@ -110,12 +110,18 @@ class DeviceDriver(Declarative):
         """
         return self.default_config.get('job', {}).copy()
 
-    def get_connection_config(self, id):
+    def get_connection_config(self, id, fallback=None):
         """ Pull the connection config params from the default_config 
         for the given transport id.
         """
-        cfg = self.default_config.get('connection', {}).copy()
-        return cfg.get(id, {})
+        cfg = self.default_config.get('connection', {})
+        if not cfg:
+            return {}
+        if id in cfg:
+            return cfg.get(id, {}).copy()
+        if fallback:
+            return cfg.get(fallback, {}).copy()
+        return {}
 
     def get_protocol_config(self, id):
         """ Pull the protocol config from the default_config """

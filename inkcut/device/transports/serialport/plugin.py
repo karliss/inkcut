@@ -23,12 +23,21 @@ from serial.tools.list_ports import comports
 
 from inkcut.device.transports.raw.plugin import RawFdTransport, RawFdProtocol
 
-
 #: Reverse key values
 SERIAL_PARITIES = {v: k for k, v in serial.PARITY_NAMES.items()}
 
 
-class SerialConfig(Model):
+class SerialPortInfo(Model):
+    device_path = Str()
+    description = Str()
+    usb_pid = Int()
+    usb_vid = Int()
+
+    def __str__(self):
+        return self.description
+
+
+class SerialConfigBase(Model):
     #: Available serial ports
     ports = List()
 
@@ -48,22 +57,34 @@ class SerialConfig(Model):
     # Defaults
     # -------------------------------------------------------------------------
     def _default_ports(self):
-        return comports()
+        return []
 
     def _default_parity(self):
         return 'None'
 
     def _default_port(self):
         if self.ports:
-            return self.ports[0].device
+            return self.ports[0].device_path
         return ""
 
     def refresh(self):
         self.ports = self._default_ports()
 
 
-class SerialTransport(RawFdTransport):
+class SerialConfig(SerialConfigBase):
+    def _default_ports(self):
+        result = []
+        for port in comports():
+            info = SerialPortInfo()
+            info.device_path = port.device
+            info.description = str(port)
+            info.usb_pid = port.pid if port.pid else 0
+            info.usb_vid = port.vid if port.vid else 0
+            result.append(info)
+        return result
 
+
+class SerialTransport(RawFdTransport):
     #: Default config
     config = Instance(SerialConfig, ()).tag(config=True)
 
