@@ -186,7 +186,7 @@ class DeviceProtocol(Model):
         if self.transport is not None:
             self.transport.write(data)
 
-    def data_received(self, data):
+    def data_received(self, data: bytes):
         """ Called when the device replies back with data. This can occur
         at any time as communication is asynchronous. The protocol should
         handle as needed.

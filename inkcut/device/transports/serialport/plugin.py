@@ -23,10 +23,6 @@ from serial.tools.list_ports import comports
 
 from inkcut.device.transports.raw.plugin import RawFdTransport, RawFdProtocol
 
-#: Reverse key values
-SERIAL_PARITIES = {v: k for k, v in serial.PARITY_NAMES.items()}
-
-
 class SerialPortInfo(Model):
     device_path = Str()
     description = Str()
@@ -46,7 +42,7 @@ class SerialConfigBase(Model):
     baudrate = Int(9600).tag(config=True)
     bytesize = Enum(serial.EIGHTBITS, serial.SEVENBITS, serial.SIXBITS,
                     serial.FIVEBITS).tag(config=True)
-    parity = Enum(*serial.PARITY_NAMES.values()).tag(config=True)
+    parity = Enum(*serial.PARITY_NAMES.keys()).tag(config=True)
     stopbits = Enum(serial.STOPBITS_ONE, serial.STOPBITS_ONE_POINT_FIVE,
                     serial.STOPBITS_TWO).tag(config=True)
     xonxoff = Bool().tag(config=True)
@@ -60,7 +56,7 @@ class SerialConfigBase(Model):
         return []
 
     def _default_parity(self):
-        return 'None'
+        return 'N'
 
     def _default_port(self):
         if self.ports:
@@ -110,7 +106,7 @@ class SerialTransport(RawFdTransport):
                 reactor,
                 baudrate=config.baudrate,
                 bytesize=config.bytesize,
-                parity=SERIAL_PARITIES[config.parity],
+                parity=config.parity,
                 stopbits=config.stopbits,
                 xonxoff=config.xonxoff,
                 rtscts=config.rtscts

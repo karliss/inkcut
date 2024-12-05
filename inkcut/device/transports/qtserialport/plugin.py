@@ -35,10 +35,10 @@ class QtSerialConfig(SerialConfigBase):
 
     def map_flow_control(self):
         if self.rtscts:
-            return QSerialPort.HardwareControl
+            return QSerialPort.FlowControl.HardwareControl
         elif self.xonxoff:
-            return QSerialPort.SoftwareControl
-        return QSerialPort.NoFlowControl
+            return QSerialPort.FlowControl.SoftwareControl
+        return QSerialPort.FlowControl.NoFlowControl
 
     STOP_BIT_MAPPING = {
         serial.STOPBITS_ONE: QSerialPort.StopBits.OneStop,
@@ -60,7 +60,18 @@ class QtSerialConfig(SerialConfigBase):
     def map_parity(self):
         return QtSerialConfig.PARITY_BIT_MAPPING[self.parity]
 
+    BYTESIZE_MAPPING = {
+        5: QSerialPort.DataBits.Data5,
+        6: QSerialPort.DataBits.Data6,
+        7: QSerialPort.DataBits.Data7,
+        8: QSerialPort.DataBits.Data8,
+    }
+
+    def map_bytesize(self):
+        return QtSerialConfig.BYTESIZE_MAPPING[self.bytesize]
+
 class QtSerialTransport(DeviceTransport):
+    __slots__ = ('__weakref__',) # needed to for connection with Qt signals, at least with PyQt6
 
     #: Default config
     config = Instance(QtSerialConfig, ()).tag(config=True)
@@ -75,23 +86,32 @@ class QtSerialTransport(DeviceTransport):
     def open_serial_port(self, config):
         try:
             serial_port = QSerialPort()
-            serial_port.setPortName(config.device_path)
+            serial_port.setPortName(config.port)
             #Setting the AllDirections flag is supported on all platforms. Windows supports only this mode.
-            serial_port.setBaudRate(config.baudrate, QSerialPort.AllDirections)
+            serial_port.setBaudRate(config.baudrate, QSerialPort.Direction.AllDirections)
             serial_port.setParity(config.map_parity())
             serial_port.setStopBits(config.map_stop_bits())
-            serial_port.setDataBits(config.bytesize)
+            serial_port.setDataBits(config.map_bytesize())
             serial_port.setFlowControl(config.map_flow_control())
             serial_port.open(QSerialPort.ReadWrite)
+            foo = self.on_data_receive_ready
+            serial_port.readyRead.connect(self.on_data_receive_ready)
             return serial_port
         except Exception as e:
             log.error("{}".format(traceback.format_exc()))
-            return None    
+            return None
+
+    def on_data_receive_ready(self):
+        if not self.connection:
+            return
+        while self.connection.bytesAvailable() > 0:
+            data = self.connection.read(self.connection.bytesAvailable())
+            self.protocol.data_received(data)
+            self.last_read = data
 
     def connect(self):
         config = self.config
-        #self.device_path = config.port
-        device_path = self.device_path = config.port
+        self.device_path = config.port
         try:
             #: Save a reference
             self.protocol.transport = self

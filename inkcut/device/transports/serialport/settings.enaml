@@ -15,7 +15,7 @@ from inkcut.core.utils import load_icon
 from enaml.layout.api import hbox, align, spacer
 from enaml.qt.QtWidgets import QApplication
 from enaml.widgets.api import Container, Form, Label, ObjectCombo, SpinBox, CheckBox, PushButton
-
+import serial
 
 enamldef SerialPortSettingsView(Container):
     attr model
@@ -68,6 +68,7 @@ enamldef SerialPortSettingsView(Container):
         ObjectCombo:
             items = list(model.get_member('parity').items)
             selected := model.parity
+            to_string = lambda v: serial.PARITY_NAMES[v]
         Label:
             text = QApplication.translate("serialport", "Stopbits")
         ObjectCombo:
