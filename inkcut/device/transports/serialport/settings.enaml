@@ -12,20 +12,51 @@ Created on Jul 12, 2015
 """
 import textwrap
 from inkcut.core.utils import load_icon
-from enaml.layout.api import hbox, align, spacer
+from enaml.layout.api import hbox, vbox, align, spacer
 from enaml.qt.QtWidgets import QApplication
-from enaml.widgets.api import Container, Form, Label, ObjectCombo, SpinBox, CheckBox, PushButton
+from enaml.widgets.api import Container, Form, Label, ObjectCombo, SpinBox, CheckBox, PushButton, Menu, Action, Field
+from enaml.validator import IntValidator
+from inkcut.core.api import log
+from enaml.stdlib.message_box import question
 import serial
+
+enamldef HexPair(Field):
+    attr number = 0
+    mask = "HHHH"
+    validator = IntValidator(minimum=0, maximum=0x888ffff, base=16)
+    text << "{:0>4x}".format(number)
+    text :: self.number = int(change['value'], 16)
+    max_length = 4
 
 enamldef SerialPortSettingsView(Container):
     attr model
     attr exclusive = False
+    attr show_all_ports = False
     padding = 0
 
     alias dsrdtr
     func selected_port(port, ports):
-        matches = [p for p in ports if p.device_path == port]
+        matches = [p for p in ports if p.device_path == port and model.port_matches(p)]
         return matches[0] if matches else None
+
+    func get_ports(candidates):
+        if show_all_ports:
+            return candidates
+        else:
+            return [port for port in candidates if model.port_matches(port)]
+
+    func port_string(port):
+        if model.port_matches(port):
+            return str(port)
+        return "{}{}".format(QApplication.translate("serialport", "(not compatible): "), (str(port)))
+
+    func filter_update_confirm(result):
+        if result and result.action == 'accept':
+            return True
+        return False
+
+    func refresh_filter_clear():
+        filter_clear.enabled = model.has_port_filter()
 
     Form:
         Label:
@@ -33,24 +64,101 @@ enamldef SerialPortSettingsView(Container):
         Container:
             padding = 0
             constraints = [
-                hbox(cb, pb),
-                align('v_center', cb, pb)
+                vbox(
+                    hbox(cb, pb),
+                    hbox(filter_label, filter_descr, filter_label_vid, filter_vid,
+                         filter_label_pid, filter_pid, clear_group),
+                 ),
+                align('v_center', cb, pb),
+                align('v_center', filter_label, filter_label_vid, filter_label_pid, filter_descr),
+                (filter_vid.width == 50) | 'medium',
+                (filter_pid.width == 50) | 'medium',
+                filter_vid.width == filter_pid.width
             ]
             ObjectCombo: cb:
-                items << model.ports
+                items << get_ports(model.ports)
                 selected << selected_port(model.port, model.ports)
+                to_string = port_string
                 selected ::
                     port = change['value']
                     if port:
-                        model.port = port.device_path
+                        if not model.port_matches(port):
+                            if filter_update_confirm(question(
+                                    self, '', QApplication.translate("serialport",
+                                    "Port does not match the filter, do you want to update filter?"))):
+                                model.clear_filter()
+                                model.make_filter(port)
+                                model.port = port.device_path
+                                refresh_filter_clear()
+                            else:
+                                model.port = ""
+                                cb.selected = None
+                                cb._refresh_proxy(dict(type='update'))
+                        else:
+                            old_port = change['oldvalue']
+                            if not model.has_port_filter() and\
+                                 (old_port and old_port.device_path != port.device_path):
+                                model.make_filter(port)
+                            model.port = port.device_path
                 tool_tip = textwrap.dedent("""
                 List of serial ports detected by the system. If nothing is here you
                 must install the device driver for your machine.
                 """).strip()
-            PushButton: pb:
-                text = QApplication.translate("serialport", "Refresh")
-                icon = load_icon("arrow_refresh")
-                clicked :: model.refresh()
+            Container: pb:
+                padding = 0
+                constraints = [
+                    hbox(pb2, pb3, spacing=0),
+                    pb2.height == pb3.height,
+                    pb3.width == pb3.height
+                ]
+                hug_width = 'medium'
+                PushButton: pb2:
+                    text = QApplication.translate("serialport", "Refresh")
+                    icon = load_icon("arrow_refresh")
+                    clicked :: model.refresh()
+                PushButton: pb3:
+                    Menu:
+                        Action:
+                            text = QApplication.translate("serialport", "Show all")
+                            checkable = True
+                            checked := show_all_ports
+                            checked :: model.refresh()
+            Label: filter_label:
+                text = QApplication.translate("serialport", "Filter: ")
+            Field: filter_descr:
+                text := model.port_filter_name
+                text :: refresh_filter_clear()
+            Label: filter_label_vid:
+                text = QApplication.translate("serialport", "VID")
+            HexPair: filter_vid:
+                number := model.port_filter_vid
+                number :: refresh_filter_clear()
+                resist_width = 'weak'
+            Label: filter_label_pid:
+                text = QApplication.translate("serialport", "PID")
+            HexPair: filter_pid:
+                number := model.port_filter_pid
+                number :: refresh_filter_clear()
+                resist_width = 'weak'
+            Container: clear_group:
+                padding = 0
+                constraints = [
+                    hbox(filter_clear, pb4, spacing=0),
+                    pb4.height == filter_clear.height,
+                    pb4.width == pb4.height
+                ]
+                PushButton: filter_clear:
+                    text = QApplication.translate("serialport", "Clear")
+                    icon = load_icon("cancel")
+                    clicked ::
+                        model.clear_filter()
+                        model.refresh()
+                        refresh_filter_clear()
+                PushButton: pb4:
+                    Menu:
+                        Action:
+                            text = QApplication.translate("serialport", "Make filter")
+                            triggered :: model.make_filter(cb.selected)
         Label:
             text = QApplication.translate("serialport", "Baudrate")
         SpinBox:

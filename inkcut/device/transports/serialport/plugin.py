@@ -20,6 +20,7 @@ from twisted.internet import reactor
 from twisted.internet.protocol import Protocol, connectionDone
 from twisted.internet.serialport import SerialPort
 from serial.tools.list_ports import comports
+import re
 
 from inkcut.device.transports.raw.plugin import RawFdTransport, RawFdProtocol
 
@@ -39,6 +40,11 @@ class SerialConfigBase(Model):
 
     #: Serial port config
     port = Str().tag(config=True)
+
+    port_filter_name = Str().tag(config=True)
+    port_filter_vid = Int().tag(config=True)
+    port_filter_pid = Int().tag(config=True)
+
     baudrate = Int(9600).tag(config=True)
     bytesize = Enum(serial.EIGHTBITS, serial.SEVENBITS, serial.SIXBITS,
                     serial.FIVEBITS).tag(config=True)
@@ -66,6 +72,71 @@ class SerialConfigBase(Model):
     def refresh(self):
         self.ports = self._default_ports()
 
+    def has_port_filter(self):
+        return self.port_filter_name != "" or self.port_filter_vid > 0 or self.port_filter_pid > 0
+
+    def port_matches(self, port: SerialPortInfo):
+        if self.port_filter_name:
+            if not re.search(self.port_filter_name, port.description):
+                return False
+        if self.port_filter_vid > 0 and port.usb_vid != self.port_filter_vid:
+            return False
+        if self.port_filter_pid > 0 and port.usb_pid != self.port_filter_pid:
+            return False
+        return True
+
+    def clear_filter(self):
+        self.port_filter_name = ""
+        self.port_filter_vid = 0
+        self.port_filter_pid = 0
+
+    def make_filter(self, port_info: SerialPortInfo):
+        self.clear_filter()
+        if not port_info:
+            return
+        if port_info.usb_vid > 0:
+            # usb devices should have both vid and pid
+            self.port_filter_vid = port_info.usb_vid
+            self.port_filter_pid = port_info.usb_pid
+
+            # For now assume that only usb devices will have a meaningful description
+            #
+            # Physical serial ports can't know what's connected to them, but they are
+            # also more likely to have stable device path so there is less need for filter.
+            if port_info.description:
+                text = port_info.description
+                text = text.replace(port_info.device_path, '').strip()
+                text = text.removeprefix('-').removeprefix(':').strip()
+                if text:
+                    self.port_filter_name = re.escape(text)
+
+    def port_by_path(self, device_path):
+        for port in self.ports:
+            if port.device_path == device_path:
+                return port
+        return None
+
+    def get_matching_port(self):
+        for port in self.ports:
+            if self.port_matches(port):
+                return port
+        return None
+
+    def choose_filtered_port(self):
+        if not self.has_port_filter():
+            return self.port
+
+        self.refresh()
+        port_info = self.port_by_path(self.port)
+        if port_info and self.port_matches(port_info):
+            return port_info.device_path # prefer last used port when suitable
+
+        port_info = self.get_matching_port()
+        if port_info:
+            return port_info.device_path
+
+        return None
+
 
 class SerialConfig(SerialConfigBase):
     def _default_ports(self):
@@ -92,7 +163,6 @@ class SerialTransport(RawFdTransport):
 
     def connect(self):
         config = self.config
-        self.device_path = config.port
         try:
             #: Save a reference
             self.protocol.transport = self
@@ -100,9 +170,15 @@ class SerialTransport(RawFdTransport):
             #: Make the wrapper
             self._protocol = RawFdProtocol(self, self.protocol)
 
+            port = self.config.choose_filtered_port()
+            if not port:
+                raise Exception("{} | Could not find suitable port".format(config.port))
+            self.config.port = port  # might be updated if there is a filter
+            self.device_path = config.port
+
             self.connection = SerialPort(
                 self._protocol,
-                config.port,
+                port,
                 reactor,
                 baudrate=config.baudrate,
                 bytesize=config.bytesize,

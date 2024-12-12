@@ -85,8 +85,14 @@ class QtSerialTransport(DeviceTransport):
 
     def open_serial_port(self, config):
         try:
+            port_name = self.config.choose_filtered_port()
+            if not port_name:
+                raise Exception("{} | Could not find suitable port".format(config.port))
+            self.config.port = port_name  # might be updated if there is a filter
+
+
             serial_port = QSerialPort()
-            serial_port.setPortName(config.port)
+            serial_port.setPortName(port_name)
             #Setting the AllDirections flag is supported on all platforms. Windows supports only this mode.
             serial_port.setBaudRate(config.baudrate, QSerialPort.Direction.AllDirections)
             serial_port.setParity(config.map_parity())
