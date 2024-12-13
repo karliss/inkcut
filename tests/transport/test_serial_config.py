@@ -79,3 +79,9 @@ def test_make_filter():
     config.make_filter(info)
     assert config.port_matches(info)
     assert not config.port_matches(SerialPortInfo(description='a', usb_vid=123, usb_pid=321))
+
+    info = SerialPortInfo(device_path='/dev/someport1', description=r" /dev/someport1: description",
+                          usb_vid=123, usb_pid=321)
+    config = SerialConfigBase()
+    config.make_filter(info)
+    assert config.port_filter_name == "description"

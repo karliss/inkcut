@@ -106,7 +106,7 @@ class SerialConfigBase(Model):
             if port_info.description:
                 text = port_info.description
                 text = text.replace(port_info.device_path, '').strip()
-                text = text.removeprefix('-').removeprefix(':').strip()
+                text = text.strip('-: ')
                 if text:
                     self.port_filter_name = re.escape(text)
 
