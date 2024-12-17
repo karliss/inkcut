@@ -85,3 +85,11 @@ def test_make_filter():
     config = SerialConfigBase()
     config.make_filter(info)
     assert config.port_filter_name == "description"
+
+    info = SerialPortInfo(device_path='COM3', description=r" (COM3) description (COM3) ",
+                          usb_vid=123, usb_pid=321)
+    config = SerialConfigBase()
+    config.make_filter(info)
+    assert config.port_matches(info)
+    assert not config.port_matches(SerialPortInfo(device_path='COM3', description=r"zescriptionz",
+                          usb_vid=123, usb_pid=321))

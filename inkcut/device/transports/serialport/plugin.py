@@ -105,10 +105,20 @@ class SerialConfigBase(Model):
             # also more likely to have stable device path so there is less need for filter.
             if port_info.description:
                 text = port_info.description
-                text = text.replace(port_info.device_path, '').strip()
-                text = text.strip('-: ')
-                if text:
-                    self.port_filter_name = re.escape(text)
+                text = text.strip(' -:()')
+                parts = text.split(port_info.device_path)
+                best = ""
+                for part in parts:
+                    if len(part) > len(best):
+                        best = part
+
+                best = best.strip(' -:()')
+
+                if best:
+                    self.port_filter_name = re.escape(best)
+                    if not re.search(self.port_filter_name, port_info.description):
+                        log.warn("Failed to create port description filter for '{}'".format(port_info.description))
+                        self.port_filter_name = ""
 
     def port_by_path(self, device_path):
         for port in self.ports:
