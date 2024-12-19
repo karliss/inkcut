@@ -41,6 +41,7 @@ enamldef QtSerialManifest(PluginManifest):
 
         DeviceTransport:
             id = 'qtserial'
+            category = 'serial'
             name = 'Qt SerialPort'
             factory = transport_factory
             config_view = config_view_factory

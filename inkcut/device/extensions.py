@@ -27,7 +27,7 @@ def default_device_factory(driver, transports, protocols, config=None):
     driver: DeviceDriver
         The declaration of the device driver that was selected by the user
     transports: List[DeviceTransport]
-        A list of DeviceTransport declarations that this device driver supports 
+        A list of all available DeviceTransport declarations
     protocols: List[DeviceProtocol]
         A list of DeviceProtocol declarations that this device driver supports 
 
@@ -147,6 +147,9 @@ class DeviceProtocol(Declarative):
 class DeviceTransport(Declarative):
     #: Id of the transport
     id = d_(Str())
+
+    #: transport category in case there are multiple backends supporting same type of transport
+    category = d_(Str())
 
     #: Name of the transport (optional)
     name = d_(Str())

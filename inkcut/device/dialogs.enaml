@@ -36,6 +36,8 @@ enamldef ConfigEditView(Include):
     attr configurable: Model # Pair of config model and config declaration
     attr plugin
     func load_config_view(config, declaration):
+        if not declaration:
+            return []
         View = declaration.config_view()
         kwargs = {
             'model': config
@@ -118,13 +120,13 @@ enamldef DeviceEditView(Notebook): notebook:
                 Label:
                     text = QApplication.translate("device", "Type")
                 ObjectCombo:
-                    attr supported_transports << device.transports \
-                        if device and device.transports else plugin.transports
+                    attr supported_transports << [transport for transport in plugin.transports\
+                        if device.supports_transport(transport)]
                     items << sorted(supported_transports, key=lambda t: t.name)
                     to_string = lambda t: QApplication.translate("device", t.name)
 
                     func get_selected(device):
-                        if not device or not device.connection:
+                        if not device or not device.connection or not device.connection.declaration:
                             return
                         tid = device.connection.declaration.id
                         for t in plugin.transports:
@@ -135,7 +137,8 @@ enamldef DeviceEditView(Notebook): notebook:
                     selected ::
                         # Since this will trigger when the device changes, only actually update
                         # if the connection changes
-                        if selected and selected.id != device.connection.declaration.id:
+                        if selected and device.connection and device.connection.declaration and\
+                            selected.id != device.connection.declaration.id:
                             declaration = selected
                             protocol = None
                             if device.connection and device.connection.protocol:

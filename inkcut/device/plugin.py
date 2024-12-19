@@ -533,9 +533,6 @@ class Device(Model):
     #: Protocols supported by this device (ex the HPGLProtocol)
     protocols = List(extensions.DeviceProtocol)
 
-    #: Transports supported by this device (ex the SerialPort
-    transports = List(extensions.DeviceTransport)
-
     #: Filters that this device applies to the output
     filters = List(DeviceFilter).tag(config=True)
 
@@ -571,6 +568,9 @@ class Device(Model):
     status = Str()
 
     def __init__(self, *args, **kwargs):
+        transports = None
+        if 'transports' in kwargs:
+            transports = kwargs.pop('transports')
         super(Model, self).__init__(*args, **kwargs)
         (w, h) = kwargs.get('width'), kwargs.get('height')
         if w:
@@ -580,17 +580,46 @@ class Device(Model):
         if not h:
             h = 900000
         self.config.area.size[1] = h
+        if not kwargs.get('connection'):
+            self.connection = self._make_default_connection(transports)
 
-    def _default_connection(self):
+    def _make_default_connection(self, transports):
         """ If no connection is set when the device is created,
         create one using the first "connection" type the driver supports.
         """
-        if not self.transports:
+
+        if not transports or not self.declaration:
+            return TestTransport(declaration=extensions.DeviceTransport())
+        preferred_decl = None
+        # prioritize available connections based on the order in device manifest
+        for supported_transform in self.declaration.connections:
+            if preferred_decl:
+                break
+            for transport in transports:
+                if transport.id == supported_transform or transport.category == supported_transform:
+                    preferred_decl = transport
+                    break
+        if not preferred_decl:
+            for transport in transports:
+                if self.supports_transport(transport):
+                    preferred_decl = transport
+                    break
+        if not preferred_decl:
             return TestTransport()
-        declaration = self.transports[0]
+
         driver = self.declaration
         protocol = self._default_protocol()
-        return declaration.factory(driver, declaration, protocol)
+        return preferred_decl.factory(driver, preferred_decl, protocol)
+
+    def supports_transport(self, transport_manifest):
+        if not self.declaration or not self.declaration.connections:
+            return True
+        conections = self.declaration.connections
+        if transport_manifest.id in conections or \
+                transport_manifest.id == "disk" or \
+                (transport_manifest.category and transport_manifest.category in conections):
+            return True
+        return False
 
     def _default_protocol(self):
         """ Create the protocol for this device. """
@@ -1273,17 +1302,13 @@ class DevicePlugin(Plugin):
                 and processing the jobs.
 
         """
-        # Set the protocols based on the declaration
-        transports = [t for t in self.transports
-                      if not driver.connections or t.id == 'disk' or
-                      t.id in driver.connections]
 
         # Set the protocols based on the declaration
         protocols = [p for p in self.protocols
                      if not driver.protocols or p.id in driver.protocols]
 
         # Generate the device
-        return driver.factory(driver, transports, protocols, config)
+        return driver.factory(driver, self.transports, protocols, config)
 
     # -------------------------------------------------------------------------
     # Device Extensions API
