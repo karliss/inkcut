@@ -16,7 +16,7 @@ class HPGLConfig(Model):
 
 
 class HPGLProtocol(DeviceProtocol):
-    DEFAULT_SCALE = Float(1016 / 90.0)
+    DEFAULT_SCALE = (1016 / 90.0)
 
     #: Pad option
     config = Instance(HPGLConfig, ()).tag(config=True)
