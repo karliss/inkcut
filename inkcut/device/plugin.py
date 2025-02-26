@@ -802,7 +802,7 @@ class Device(Model):
             self.position = position
 
         # TODO: use relative mode provided by protocol and self.map_vector
-        result = self.connection.protocol.move(*position, absolute=absolute)
+        result = self.connection.protocol.move(*position, absolute=True)
         if result:
             return result
 
