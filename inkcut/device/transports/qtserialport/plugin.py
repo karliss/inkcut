@@ -151,6 +151,14 @@ class QtSerialTransport(DeviceTransport):
     def __repr__(self):
         return self.device_path
 
+    @property
+    def auto_disconnect_after_job(self) -> bool:
+        return self.config.close_after_job
+
+    @property
+    def always_disconnect_after_job(self) -> bool:
+        return False
+
 
 class QtSerialPlugin(Plugin):
     """ Plugin for handling serial port communication

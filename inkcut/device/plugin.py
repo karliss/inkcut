@@ -88,6 +88,14 @@ class DeviceTransport(Model):
         """
         raise NotImplementedError
 
+    @property
+    def always_disconnect_after_job(self) -> bool:
+        True
+
+    @property
+    def auto_disconnect_after_job(self) -> bool:
+        return True
+
 
 class TestTransport(DeviceTransport):
     """ A transport that captures protocol output """
@@ -910,7 +918,7 @@ class Device(Model):
                 for path in model.toSubpathPolygons(m):
                     for i, p in enumerate(path):
                         whole_path.lineTo(p)
-                        total_lines += 1
+                    total_lines += 1
                 total_length = whole_path.length()
                 total_moved = 0
                 log.debug("device | Path length: {}".format(total_length))
@@ -1033,7 +1041,7 @@ class Device(Model):
                         log.error(traceback.format_exc())
                         raise
                     finally:
-                        if connection.connected:
+                        if connection.connected and connection.auto_disconnect_after_job:
                             yield defer.maybeDeferred(self.disconnect)
 
             #: Set the origin

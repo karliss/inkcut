@@ -49,3 +49,8 @@ enamldef ParallelPortSettingsView(Container):
                 text = QApplication.translate("parallelport", "Refresh")
                 icon = load_icon("arrow_refresh")
                 clicked :: model.refresh()
+        Label:
+            pass
+        CheckBox:
+            text = QApplication.translate("transport", "Disconnect after job")
+            checked := model.close_after_job

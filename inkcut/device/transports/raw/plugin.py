@@ -14,16 +14,17 @@ import os
 import sys
 import traceback
 from atom.atom import set_default
-from atom.api import Value, Instance, Str, Enum
+from atom.api import Value, Instance, Str, Enum, Bool
 from inkcut.core.api import Plugin, Model, log
-from inkcut.device.plugin import DeviceTransport
+from inkcut.device.plugin import DeviceTransport, DeviceProtocol
 from twisted.internet import reactor, stdio
 from twisted.internet.protocol import Protocol, connectionDone
 
 
 class RawFdConfig(Model):
     device_path = Str("/dev/null").tag(config=True)
-    mode = Enum('r+b', 'wb', 'r+', 'w').tag(config=True)
+    mode = Enum("r+b", "wb", "r+", "w").tag(config=True)
+    close_after_job = Bool(True).tag(config=True)
 
 
 class RawFdProtocol(Protocol, object):
@@ -31,7 +32,8 @@ class RawFdProtocol(Protocol, object):
     implementation to have a consistent api (and use proper pep 8 formatting!).
 
     """
-    def __init__(self, transport, protocol):
+
+    def __init__(self, transport: DeviceTransport, protocol: DeviceProtocol):
         self._transport = transport
         self.delegate = protocol
 
@@ -47,7 +49,8 @@ class RawFdProtocol(Protocol, object):
 
     def connectionLost(self, reason=connectionDone):
         self._transport.connected = False
-        self._transport.fd = None
+        if hasattr(self._transport, "fd"):
+            self._transport.fd = None
         device_path = self._transport.device_path
         log.debug("-- {} | dropped: {}".format(device_path, reason))
         self.delegate.connection_lost()
@@ -73,7 +76,7 @@ class RawFdTransport(DeviceTransport):
     def connect(self):
         config = self.config
         device_path = self.device_path = config.device_path
-        if 'win32' in sys.platform:
+        if "win32" in sys.platform:
             # Well, technically it works, but only with stdin and stdout
             raise OSError("Raw device support cannot be used on Windows")
 
@@ -93,7 +96,7 @@ class RawFdTransport(DeviceTransport):
         if not self.connection:
             raise IOError("{} is not opened".format(self.device_path))
         log.debug("-> {} | {}".format(self.device_path, data))
-        if hasattr(data, 'encode'):
+        if hasattr(data, "encode"):
             data = data.encode()
         self.last_write = data
         self.connection.write(data)
@@ -104,6 +107,13 @@ class RawFdTransport(DeviceTransport):
             self.connection.loseConnection()
             self.connection = None
 
+    @property
+    def auto_disconnect_after_job(self) -> bool:
+        return self.config.close_after_job
+
+    @property
+    def always_disconnect_after_job(self) -> bool:
+        return False
+
     def __repr__(self):
         return self.device_path
-
