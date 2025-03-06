@@ -12,7 +12,7 @@ Created on Feb 2, 2019
 """
 from inkcut.core.utils import load_icon
 from enaml.qt.QtWidgets import QApplication
-from enaml.widgets.api import Container, Form, Label, Field, ObjectCombo
+from enaml.widgets.api import Container, Form, Label, Field, ObjectCombo, CheckBox
 
 
 enamldef RawFdSettingsView(Container):
@@ -28,3 +28,8 @@ enamldef RawFdSettingsView(Container):
         ObjectCombo:
             items << list(model.get_member('mode').items)
             selected := model.mode
+        Label:
+            pass
+        CheckBox:
+            text = QApplication.translate("transport", "Disconnect after job")
+            checked := model.close_after_job

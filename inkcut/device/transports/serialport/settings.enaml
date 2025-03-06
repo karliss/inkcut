@@ -213,3 +213,8 @@ enamldef SerialPortSettingsView(Container):
                         model.dsrdtr = False
                         model.rtscts = False
                 tool_tip = QApplication.translate("serialport", "Enable software flow control")
+        Label:
+            pass
+        CheckBox:
+            text = QApplication.translate("transport", "Disconnect after job")
+            checked := model.close_after_job

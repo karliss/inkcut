@@ -54,6 +54,7 @@ class SerialConfigBase(Model):
     xonxoff = Bool().tag(config=True)
     rtscts = Bool().tag(config=True)
     dsrdtr = Bool().tag(config=True)
+    close_after_job = Bool(True).tag(config=True)
 
     # -------------------------------------------------------------------------
     # Defaults
@@ -212,6 +213,15 @@ class SerialTransport(RawFdTransport):
             #: squashed by twisted
             log.error("{} | {}".format(config.port, traceback.format_exc()))
             raise
+
+    @property
+    def auto_disconnect_after_job(self) -> bool:
+        return self.config.close_after_job
+
+    @property
+    def always_disconnect_after_job(self) -> bool:
+        return False
+
 
 
 class SerialPlugin(Plugin):
