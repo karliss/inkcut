@@ -145,7 +145,8 @@ class ParallelTwistedTransport(abstract.FileDescriptor):
 
     def writeSomeData(self, data):
         res = fdesc.writeToFD(self.fileno(), data)
-        self.written_something = self.written_something or res > 0
+        if isinstance(res, int):
+            self.written_something = self.written_something or res > 0
         return res
 
     def doRead(self):
