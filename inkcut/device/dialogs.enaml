@@ -48,6 +48,8 @@ enamldef ConfigEditView(Include):
     objects << load_config_view(configurable.config, configurable.declaration) \
         if configurable else [ConfigView(model=Model())]
 
+def sort_filters(filters, order):
+    return sorted(filters, key=lambda x: order.get(x.declaration.id, -1))
 
 enamldef DeviceEditView(Notebook): notebook:
     """ View to edit a single Device instance
@@ -209,7 +211,7 @@ enamldef DeviceEditView(Notebook): notebook:
                                             f.declaration = loop_item
                                             filters.append(f)
                                             order = { x.id:i for (i, x) in enumerate(plugin.filters) }
-                                            device.filters = sorted(filters, key=lambda x: order.get(x.declaration.id, -1))
+                                            device.filters = sort_filters(filters, order)
                                         else:
                                             device.filters = [f for f in device.filters if f.declaration.id != loop_item.id]
                             Include:
