@@ -10,7 +10,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest", "macos-latest", "macos-13"]
-        python: ["3.8", "3.10", "3.12"]
+        python: ["3.8", "3.10", "3.12", "3.13"]
         include:
           - qt: "PyQt6" # default values
             experimental: false
@@ -19,7 +19,7 @@ jobs:
           - python: "3.10"
             qt: "PyQt5"
           - os: "windows-latest" # windows added manually
-            python: "3.12"
+            python: "3.13"
             qt: "PyQt6"
             experimental: false
           - os: "windows-latest"
@@ -33,6 +33,8 @@ jobs:
         exclude:
             - os: "macos-13" # Reduce number of total macOS combinations. Use only the latest and few older ones on x86_64
               python: "3.10"
+            - os: "macos-13"
+              python: "3.12"
 
     steps:
       - uses: actions/checkout@v4
