@@ -112,8 +112,14 @@ class InkcutPlugin(Plugin):
             plugins.append(MonitorManifest)
 
             #: Load any plugins defined as extension points
-            for entry_point in importlib.metadata.entry_points(
-                    group='inkcut.plugin'):
+            if sys.version_info >= (3, 10, 0):
+                entry_points = importlib.metadata.entry_points(group='inkcut.plugin')
+            else:
+                entry_points = importlib.metadata.entry_points().get(
+                    'inkcut.plugin',
+                    []
+                )
+            for entry_point in entry_points:
                 plugins.append(entry_point.load())
 
         #: Install all of them
