@@ -138,19 +138,26 @@ class BladeOffsetFilter(DeviceFilter):
         next_angle = sp.angleAtPercent(1)
 
         # Direction of last move
-        angle = trailing_angle(blade_path)
+        if blade_path.elementCount() > 1:
+            angle = trailing_angle(blade_path)
+        else:
+            #initial corner, blade orientation unknown
+            #extend in the initial movement direction, might result in a bit of overcut
+            angle = sp.angleAtPercent(0.00001)
+            a = radians(angle)
+            offset_path.moveTo(cur - QPointF(cos(a), -sin(a)) * self.config.offset)
 
         # If not continuous it needs corrected with an arc
         if isnan(angle) or isnan(next_angle):
             return
-        if abs(angle - next_angle) > self.config.cutoff:
+        diff = next_angle - angle
+        if diff > 180:
+            diff -= 360
+        if diff < -180:
+            diff += 360
+        if abs(diff) > self.config.cutoff:
             r = self.config.offset
             circle_size = QPointF(r, r)
-            diff = next_angle - angle
-            if diff > 180:
-                diff -= 360
-            if diff < -180:
-                diff += 360
             offset_path.arcTo(
                 QRectF(cur - circle_size, QSizeF(2 * r, 2 * r)), angle, diff
             )
@@ -202,11 +209,18 @@ class BladeOffsetFilter(DeviceFilter):
         r = self.config.offset
         p0 = blade_path.currentPosition()
         p1, p2 = params
-        self.add_continuity_correction(offset_path, blade_path, p1)
 
         curve = QPainterPath()
         curve.moveTo(p0)
         curve.quadTo(*params)
+
+        first_anchor = p1
+        start_offset = 0
+        if (p0-p1).manhattanLength() <= 0.00000000001:
+            start_offset = 0.00001
+            first_anchor = curve.pointAtPercent(start_offset)
+        self.add_continuity_correction(offset_path, blade_path, first_anchor)
+
         p = QPainterPath()
         p.moveTo(p0)
 
@@ -220,6 +234,8 @@ class BladeOffsetFilter(DeviceFilter):
         for point in polygon:
             p.lineTo(point)
             t = curve.percentAtLength(p.length())
+            if t == 0:
+                t = start_offset
             angle = curve.angleAtPercent(t)
             a = radians(angle)
             dx, dy = r * cos(a), -r * sin(a)
@@ -232,11 +248,18 @@ class BladeOffsetFilter(DeviceFilter):
         r = self.config.offset
         p0 = blade_path.currentPosition()
         p1, p2, p3 = params
-        self.add_continuity_correction(offset_path, blade_path, p1)
 
         curve = QPainterPath()
         curve.moveTo(p0)
         curve.cubicTo(*params)
+
+        first_anchor = p1
+        start_offset = 0
+        if (p0 - p1).manhattanLength() <= 0.00000000001:
+            start_offset = 0.00001
+            first_anchor = curve.pointAtPercent(start_offset)
+        self.add_continuity_correction(offset_path, blade_path, first_anchor)
+
         p = QPainterPath()
         p.moveTo(p0)
 
@@ -250,6 +273,8 @@ class BladeOffsetFilter(DeviceFilter):
         for point in polygon:
             p.lineTo(point)
             t = curve.percentAtLength(p.length())
+            if t == 0:
+                t = start_offset
             angle = curve.angleAtPercent(t)
             a = radians(angle)
             dx, dy = r * cos(a), -r * sin(a)

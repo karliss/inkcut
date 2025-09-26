@@ -252,7 +252,7 @@ def path_element_to_point(element):
 
 def trailing_angle(path):
     if path.elementCount() < 10:
-        return path.angleAtPercent(1)
+        return path.angleAtPercent(0.99999)
     else:
         p = QPainterPath()
         p.reserve(10)
@@ -260,7 +260,7 @@ def trailing_angle(path):
         while pos < path.elementCount():
             add_item_to_path(p, path.elementAt(pos), pos, path)
             pos += 1
-        return p.angleAtPercent(1)
+        return p.angleAtPercent(0.99999)
 
 
 def rect_to_path(rect):
